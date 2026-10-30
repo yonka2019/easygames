@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.4.0] : 2026-10-31
+
+- Site version shown in the footer.
+
 ## [v0.3.0] : 2026-10-31
 
 - Smoother animations: play ↔ result swaps ease their height, burst lands with the result panel.

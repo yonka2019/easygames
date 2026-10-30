@@ -5,6 +5,8 @@ import { Home } from './components/Home'
 import { GameFrame } from './components/GameFrame'
 import { GAMES, byId } from './games/registry'
 import { useRoute } from './lib/route'
+// Footer version; package.json is the single source (bumped on every release).
+import { version } from '../package.json'
 
 const AUTHOR = import.meta.env.VITE_AUTHOR || 'yonka'
 
@@ -84,7 +86,9 @@ export default function App() {
             )}
           </motion.main>
         </AnimatePresence>
-        <footer className="mx-auto w-full max-w-[1200px] px-4 pb-8 text-center text-xs text-muted md:px-8">by {AUTHOR}</footer>
+        <footer className="mx-auto w-full max-w-[1200px] px-4 pb-8 text-center text-xs text-muted md:px-8">
+          by {AUTHOR} · <span className="num">v{version}</span>
+        </footer>
       </div>
     </MotionConfig>
   )
