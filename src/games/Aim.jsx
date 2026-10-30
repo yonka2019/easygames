@@ -14,8 +14,10 @@ export default function Aim() {
   const [misses, setMisses] = useState(0)
   const [pos, setPos] = useState(spot)
   const [result, setResult] = useState(null)
-  const [ghost, setGhost] = useState(null) // last hit spot, fades out (visual only)
+  const [ghosts, setGhosts] = useState([]) // last hit spots, fade out (visual only)
+  const [miss, setMiss] = useState(null) // last missed click, fades out (visual only)
   const t0 = useRef(0)
+  const arena = useRef(null)
   const aim = useRef(0) // sum of per-hit precision, 1 = dead center, 0 = edge
 
   const reset = useCallback(() => {
@@ -29,7 +31,8 @@ export default function Aim() {
     setHits(0)
     setMisses(0)
     setPos(spot())
-    setGhost(null)
+    setGhosts([])
+    setMiss(null)
     setState('run')
     aim.current = 0
     t0.current = performance.now()
@@ -53,13 +56,21 @@ export default function Aim() {
       return
     }
     setHits(n)
-    setGhost({ ...pos, dx, dy, good: p >= 0.7, k: n })
+    // Keep the last few so each fade finishes even on fast hits.
+    setGhosts((g) => [...g.slice(-2), { ...pos, dx, dy, good: p >= 0.7, k: n }])
     setPos(spot())
+  }
+
+  const missed = (e) => {
+    if (state !== 'run') return
+    const box = arena.current.getBoundingClientRect()
+    setMisses((m) => m + 1)
+    setMiss({ x: e.clientX - box.left, y: e.clientY - box.top, k: (miss?.k ?? 0) + 1 })
   }
 
   const idle = state === 'idle'
   return (
-    <Swap k={state === 'done' && result ? 'done' : 'play'}>
+    <Swap fit k={state === 'done' && result ? 'done' : 'play'}>
       {state === 'done' && result ? (
         <Result
           title={`Aim trainer, ${TOTAL} targets`}
@@ -82,7 +93,7 @@ export default function Aim() {
                 initial={{ opacity: 0.35, y: -3 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, ease: EASE }}
-                className="inline-block"
+                className="inline-block min-w-[2ch] text-right"
               >
                 {state === 'run' ? TOTAL - hits : TOTAL}
               </motion.span>{' '}
@@ -90,7 +101,8 @@ export default function Aim() {
             </span>
           </div>
           <div
-            onPointerDown={() => state === 'run' && setMisses((m) => m + 1)}
+            ref={arena}
+            onPointerDown={missed}
             className="dot-grid relative h-[420px] w-full touch-none select-none overflow-hidden rounded-xl border border-line bg-surface md:h-[520px]"
           >
             {/* Start screen stays mounted and fades; it stops taking clicks the moment the run starts. */}
@@ -107,27 +119,41 @@ export default function Aim() {
               <CrosshairIcon size={44} weight="duotone" className="text-accent" />
               <span className="text-2xl font-semibold tracking-tight">Click to start</span>
             </motion.button>
-            {!idle && ghost && (
+            {!idle &&
+              ghosts.map((g) => (
+                <motion.span
+                  key={`ring${g.k}`}
+                  aria-hidden="true"
+                  initial={{ opacity: 0.7, scale: 1 }}
+                  animate={{ opacity: 0, scale: 1.5 }}
+                  transition={{ duration: 0.25, ease: EASE }}
+                  className="pointer-events-none absolute -ml-8 -mt-8 size-16 rounded-full border-2 border-accent"
+                  style={{ left: `${g.x}%`, top: `${g.y}%` }}
+                />
+              ))}
+            {!idle &&
+              ghosts.map((g) => (
+                // Where the click landed inside the target: green near the center, grey near the edge.
+                <motion.span
+                  key={`dot${g.k}`}
+                  aria-hidden="true"
+                  initial={{ opacity: 1, scale: 0.4 }}
+                  animate={{ opacity: 0, scale: 1 }}
+                  transition={{ duration: 0.45, ease: EASE }}
+                  className={`pointer-events-none absolute -ml-1.5 -mt-1.5 size-3 rounded-full ${g.good ? 'bg-accent' : 'bg-muted'}`}
+                  style={{ left: `calc(${g.x}% + ${g.dx}px)`, top: `calc(${g.y}% + ${g.dy}px)` }}
+                />
+              ))}
+            {!idle && miss && (
+              // A miss: small grey ring where the click landed.
               <motion.span
-                key={ghost.k}
+                key={`miss${miss.k}`}
                 aria-hidden="true"
-                initial={{ opacity: 0.7, scale: 1 }}
-                animate={{ opacity: 0, scale: 1.5 }}
-                transition={{ duration: 0.25, ease: EASE }}
-                className="pointer-events-none absolute size-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-accent"
-                style={{ left: `${ghost.x}%`, top: `${ghost.y}%` }}
-              />
-            )}
-            {!idle && ghost && (
-              // Where the click landed inside the target: green near the center, grey near the edge.
-              <motion.span
-                key={`dot${ghost.k}`}
-                aria-hidden="true"
-                initial={{ opacity: 1, scale: 0.4 }}
-                animate={{ opacity: 0, scale: 1 }}
-                transition={{ duration: 0.6, ease: EASE }}
-                className={`pointer-events-none absolute -ml-1.5 -mt-1.5 size-3 rounded-full ${ghost.good ? 'bg-accent' : 'bg-muted'}`}
-                style={{ left: `calc(${ghost.x}% + ${ghost.dx}px)`, top: `calc(${ghost.y}% + ${ghost.dy}px)` }}
+                initial={{ opacity: 0.9, scale: 0.5 }}
+                animate={{ opacity: 0, scale: 1.4 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="pointer-events-none absolute -ml-3 -mt-3 size-6 rounded-full border-2 border-muted"
+                style={{ left: miss.x, top: miss.y }}
               />
             )}
             {!idle && (
@@ -138,7 +164,7 @@ export default function Aim() {
                 onPointerDown={hit}
                 className="absolute size-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
                 style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                key={hits}
+                key={`t${hits}`}
               >
                 <span className="pop absolute inset-0 grid place-items-center rounded-full border-2 border-accent bg-accent/20">
                   <span className="size-6 rounded-full bg-accent" />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BombIcon, FlagIcon, ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useGame } from '../components/GameFrame'
-import { Button, EASE, Segmented } from '../components/ui'
+import { Button, EASE, Segmented, useEnter } from '../components/ui'
 
 const LEVELS = {
   easy: { rows: 9, cols: 9, mines: 10 },
@@ -150,6 +150,9 @@ export default function Minesweeper() {
     setBoard(b)
   }
 
+  // Enter = new board once the game is over.
+  useEnter(again, status === 'won' || status === 'lost')
+
   const flags = board.filter((c) => c.flag).length
   const big = cfg.cols > 16
 
@@ -203,7 +206,8 @@ export default function Minesweeper() {
                   aria-label={c.open ? (c.mine ? 'Mine' : `${c.n}`) : c.flag ? 'Flagged' : 'Hidden'}
                   onClick={() => {
                     if (press.current === 'long') return (press.current = null)
-                    flagMode && !c.open ? flag(i) : open(i)
+                    // A fresh board always opens: flags need mines, which are planted by the first open.
+                    flagMode && !c.open && status === 'run' ? flag(i) : open(i)
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault()

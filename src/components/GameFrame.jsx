@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { motion } from 'motion/react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { ArrowLeftIcon, TrophyIcon } from '@phosphor-icons/react'
 import { getBest, submitScore } from '../lib/store'
 import { FinishBurst } from './FinishBurst'
+import { Fit, Swap } from './ui'
 
 const GameCtx = createContext(null)
 
@@ -15,8 +16,15 @@ export function GameFrame({ game, children }) {
   const [best, setBest] = useState(() => getBest(game.id, game.variant))
   const [burst, setBurst] = useState(null)
   const [flash, setFlash] = useState(0)
+  const reduce = useReducedMotion()
 
-  const fire = useCallback((kind) => setBurst({ id: Math.random(), kind }), [])
+  // Starts after the play view's exit (Swap, 180ms), so the burst lands together with the result panel.
+  const later = useRef(0)
+  const fire = useCallback((kind) => {
+    clearTimeout(later.current)
+    later.current = setTimeout(() => setBurst({ id: Math.random(), kind }), 200)
+  }, [])
+  useEffect(() => () => clearTimeout(later.current), [])
 
   useEffect(() => {
     if (!burst) return
@@ -64,14 +72,19 @@ export function GameFrame({ game, children }) {
           </div>
           <motion.div
             key={flash}
-            initial={flash ? { scale: 1.15 } : false}
+            initial={flash && !reduce ? { scale: 1.15 } : false}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 14 }}
-            className={`flex items-center gap-2 rounded-xl border bg-surface px-4 py-2 text-sm transition-colors duration-700 ${flash ? 'border-accent/60' : 'border-line'}`}
+            className={`overflow-hidden rounded-xl border bg-surface text-sm transition-colors duration-700 ${flash ? 'border-accent/60' : 'border-line'}`}
           >
-            <TrophyIcon size={16} weight="duotone" className="text-accent" />
-            <span className="text-muted">Best{variant ? ` (${game.vlabel ? game.vlabel(variant) : variant})` : ''}</span>
-            <span className="num text-ink">{best === null ? '-' : game.fmt(best, variant)}</span>
+            {/* Width eases to the new label on a mode change; the label cross-fades. */}
+            <Fit horizontal>
+              <Swap k={variant ?? ''} className="flex items-center gap-2 whitespace-nowrap px-4 py-2">
+                <TrophyIcon size={16} weight="duotone" className="text-accent" />
+                <span className="text-muted">Best{variant ? ` (${game.vlabel ? game.vlabel(variant) : variant})` : ''}</span>
+                <span className="num text-ink">{best === null ? '-' : game.fmt(best, variant)}</span>
+              </Swap>
+            </Fit>
           </motion.div>
         </div>
         <div className="relative mt-8 md:mt-10">

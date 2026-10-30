@@ -44,7 +44,7 @@ const DONE = 4 * STAGGER + FLIP
 const ms = (s) => `${Math.round(s * 1000)}ms`
 
 export default function WordGuess() {
-  const { report, ended } = useGame()
+  const { report, ended, celebrate } = useGame()
   const [mode, setMode] = useState('daily')
   const [answer, setAnswer] = useState('')
   const [guesses, setGuesses] = useState([])
@@ -95,13 +95,17 @@ export default function WordGuess() {
     if (mode === 'daily') setValue('wordDaily', { day: today(), guesses: next })
     const win = current === answer
     if (win || next.length >= TRIES) {
-      const s = win ? streak + 1 : 0
-      setStreak(s)
-      setValue('wordStreak', s)
-      if (win) report(s)
+      // The streak (and the saved score) counts Daily only; Random games just play the finish animation.
+      if (mode === 'daily') {
+        const s = win ? streak + 1 : 0
+        setStreak(s)
+        setValue('wordStreak', s)
+        if (win) report(s)
+        else ended()
+      } else if (win) celebrate()
       else ended()
     }
-  }, [current, guesses, mode, answer, streak, report, ended])
+  }, [current, guesses, mode, answer, streak, report, ended, celebrate])
 
   const key = useCallback(
     (k) => {
@@ -147,7 +151,7 @@ export default function WordGuess() {
           onChange={setMode}
         />
         <div className="num flex items-center gap-1 text-sm text-muted">
-          streak <Swap k={streak}>{streak}</Swap>
+          daily streak <Swap k={streak}>{streak}</Swap>
         </div>
       </div>
 

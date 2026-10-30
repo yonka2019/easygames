@@ -1,13 +1,18 @@
 // Scores live in localStorage only. Every access is guarded: storage can be blocked or empty.
 const KEY = 'easygame:v1'
 
+// Anything but a plain object (corrupt or foreign data) reads as empty, so a save never throws.
 function read() {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) || {}
+    const v = JSON.parse(localStorage.getItem(KEY))
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
   } catch {
     return {}
   }
 }
+
+// Kept by resetAll: play state, not a score (today's Word guess stays done).
+const KEEP = ['_wordDaily']
 
 function write(data) {
   try {
@@ -43,12 +48,12 @@ export function setValue(name, value) {
   write(data)
 }
 
-export function totalPlays() {
-  return Object.entries(read()).reduce((n, [k, v]) => (k.startsWith('_') ? n : n + (v?.plays ?? 0)), 0)
+// True when anything resettable is stored (any mode's score, streaks).
+export function hasScores() {
+  return Object.keys(read()).some((k) => !KEEP.includes(k))
 }
 
 export function resetAll() {
-  try {
-    localStorage.removeItem(KEY)
-  } catch {}
+  const data = read()
+  write(Object.fromEntries(KEEP.filter((k) => k in data).map((k) => [k, data[k]])))
 }

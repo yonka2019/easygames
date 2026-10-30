@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
 import { ArrowClockwiseIcon } from '@phosphor-icons/react'
 import { useGame } from '../components/GameFrame'
-import { Button, EASE, Kbd } from '../components/ui'
+import { Button, EASE, Kbd, useEnter } from '../components/ui'
 
 const S = 4
 let uid = 0
@@ -154,7 +154,8 @@ export default function G2048() {
   const go = useCallback(
     (dir) => {
       const { grid, score, over, won } = state.current
-      if (over) return
+      // Frozen while the end or "You made 2048" overlay is up.
+      if (over || won === true) return
       const r = move(grid, dir)
       if (!r.moved) return
       const g = addTile(r.g)
@@ -203,6 +204,9 @@ export default function G2048() {
     if (!over && score > 0) setIsNew(report(score).isNew)
     reset()
   }
+
+  // Enter = new game when no moves are left.
+  useEnter(reset, over)
 
   return (
     <div className="mx-auto max-w-[460px]">

@@ -79,7 +79,20 @@ export function HeroShowcase() {
       </a>
 
       {/* Story-style progress: one line per game, the active one fills until the next switch. */}
-      <div role="tablist" aria-label="Preview a game" className="mt-4 flex gap-1.5">
+      {/* One Tab stop; arrows (and Home/End) move between tabs. */}
+      <div
+        role="tablist"
+        aria-label="Preview a game"
+        className="mt-4 flex gap-1.5"
+        onKeyDown={(e) => {
+          const n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: GAMES.length - 1 }[e.key]
+          if (n === undefined) return
+          e.preventDefault()
+          const to = (n + GAMES.length) % GAMES.length
+          setI(to)
+          e.currentTarget.children[to]?.focus()
+        }}
+      >
         {GAMES.map((g, n) => {
           const on = n === i
           return (
@@ -88,6 +101,7 @@ export function HeroShowcase() {
               type="button"
               role="tab"
               aria-selected={on}
+              tabIndex={on ? 0 : -1}
               aria-label={g.name}
               title={g.name}
               onClick={() => setI(n)}

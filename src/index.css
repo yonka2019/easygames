@@ -135,6 +135,17 @@ body {
   }
 }
 
+/* Reduced motion: CSS transitions and keyframes end at once too (Motion is skipped in App.jsx). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation: none !important;
+  }
+}
+
 @keyframes word-in {
   from { opacity: 0; transform: translateY(0.35em); filter: blur(2px); }
   to { opacity: 1; transform: none; filter: none; }

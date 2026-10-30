@@ -277,7 +277,9 @@ const PICKS = [
 ]
 // Fixed dark for black pockets so they stay black in the light theme too.
 const BLACK = '#1b1d21'
-const FILL = { red: 'var(--danger)', black: BLACK, green: 'var(--accent)' }
+// Red is darkened so the white pocket numbers stay readable (≥4.5:1) in both themes.
+const RED_FILL = 'color-mix(in oklab, var(--danger) 72%, black)'
+const FILL = { red: RED_FILL, black: BLACK, green: 'var(--accent)' }
 
 function wedge(i, r) {
   const a0 = ((i - 0.5) * SLICE - 90) * (Math.PI / 180)
@@ -371,7 +373,7 @@ function Roulette({ bet, busy, setBusy, settle }) {
             ) : (
               <span
                 className={`num grid size-16 place-items-center rounded-full text-2xl font-semibold ${
-                  colorOf(last) === 'red' ? 'bg-danger text-[#f2f3f0]' : colorOf(last) === 'green' ? 'bg-accent text-accent-ink' : 'bg-[#1b1d21] text-[#f2f3f0]'
+                  colorOf(last) === 'red' ? 'bg-[color-mix(in_oklab,var(--danger)_72%,black)] text-[#f2f3f0]' : colorOf(last) === 'green' ? 'bg-accent text-accent-ink' : 'bg-[#1b1d21] text-[#f2f3f0]'
                 }`}
               >
                 {last}
@@ -711,7 +713,7 @@ export default function Casino() {
   }
 
   return (
-    <Swap k={result ? 'done' : `play-${round}`}>
+    <Swap fit k={result ? 'done' : `play-${round}`}>
       {result ? (
         result.kind === 'pinpoint' ? (
           <Result

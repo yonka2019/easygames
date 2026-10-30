@@ -8,7 +8,7 @@ Scores save to this browser only (localStorage).
 
 ```
 npm install
-npm run dev      # http://localhost:25753 (also on LAN)
+npm run dev      # http://localhost:25753 (also on LAN; ngrok hosts allowed)
 npm run build    # output: dist/
 ```
 

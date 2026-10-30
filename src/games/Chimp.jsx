@@ -124,8 +124,11 @@ export default function Chimp() {
                 key={i}
                 type="button"
                 tabIndex={v ? 0 : -1}
+                aria-hidden={!v}
                 aria-label={v ? (hidden ? 'Hidden number' : `Number ${v}`) : undefined}
                 onPointerDown={() => tap(i)}
+                // Keyboard (Enter/Space) clicks have detail 0; pointer taps already ran on pointerdown.
+                onClick={(e) => e.detail === 0 && tap(i)}
                 className={`num relative aspect-square select-none rounded-md text-lg font-medium sm:text-2xl ${v ? '' : 'pointer-events-none'}`}
               >
                 {/* Numbers pop in, fade to a filled tile on hide (short, so the glimpse stays the same), and fade out when tapped. */}

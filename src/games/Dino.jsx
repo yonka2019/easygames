@@ -288,7 +288,12 @@ export default function Dino() {
     if (e.pointerType !== 'mouse') jump()
   }
   const onPointerMove = (e) => {
-    if (swipe.current && e.clientY - swipe.current.y > 24) duck(true)
+    if (swipe.current && e.clientY - swipe.current.y > 24) {
+      // The tap that began the swipe already jumped: stop rising, so the duck lands right away.
+      if (world.current.vy < 0) world.current.vy = 0
+      world.current.hold = false
+      duck(true)
+    }
   }
   const onPointerUp = () => {
     swipe.current = null

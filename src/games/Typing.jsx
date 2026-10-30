@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowClockwiseIcon, CursorClickIcon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { COMMON } from './words'
@@ -39,6 +39,30 @@ function score(words, typed, input, seconds, keys) {
   }
 }
 
+// One word. Memoised: a keystroke re-renders only the active word, not the whole list.
+const Word = memo(function Word({ w, t, i, past, active, activeRef }) {
+  const wrong = past && t !== w
+  const len = Math.max(w.length, past || active ? t.length : 0)
+  return (
+    <span
+      ref={active ? activeRef : null}
+      style={i < 48 ? { animationDelay: `${i * 6}ms` } : undefined}
+      className={`word-in mr-[0.55em] inline-block underline decoration-2 underline-offset-[6px] transition-[text-decoration-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${wrong ? 'decoration-danger/70' : 'decoration-transparent'}`}
+    >
+      {Array.from({ length: len }, (_, j) => {
+        const ch = j < w.length ? w[j] : t[j]
+        let cls = 'text-muted'
+        if ((past || active) && j < t.length) cls = j >= w.length ? 'text-danger/70' : t[j] === w[j] ? 'text-ink' : 'text-danger'
+        return (
+          <span key={j} className={`transition-colors duration-100 ${cls}`}>
+            {ch}
+          </span>
+        )
+      })}
+    </span>
+  )
+})
+
 export default function Typing() {
   const { report, setVariant, variant } = useGame()
   const duration = Number(variant) || 30
@@ -49,9 +73,11 @@ export default function Typing() {
   const [status, setStatus] = useState('idle')
   const [left, setLeft] = useState(duration)
   const [result, setResult] = useState(null)
-  const [focused, setFocused] = useState(false)
+  // Starts true: the input autofocuses, so the "Click or start typing" hint must not flash on mount.
+  const [focused, setFocused] = useState(true)
   const [shift, setShift] = useState(0)
   const [round, setRound] = useState(0)
+  const [caret, setCaret] = useState({ x: 0, y: 0, h: 0 })
 
   const startAt = useRef(0)
   const keys = useRef({ ok: 0, all: 0 })
@@ -60,6 +86,16 @@ export default function Typing() {
   const inputRef = useRef(null)
   const boxRef = useRef(null)
   const activeRef = useRef(null)
+  // Only ever set, never cleared: on restart the old word list fades out and unmounts after the new one mounted.
+  const setActive = useCallback((el) => {
+    if (el) activeRef.current = el
+  }, [])
+
+  // When the input mounts (load, Play again) check that autofocus really landed (it can fail on phones).
+  const attachInput = useCallback((el) => {
+    inputRef.current = el
+    if (el) requestAnimationFrame(() => setFocused(document.activeElement === el))
+  }, [])
 
   const reset = useCallback(() => {
     setWords(makeWords(120))
@@ -71,6 +107,7 @@ export default function Typing() {
     setShift(0)
     setRound((r) => r + 1)
     keys.current = { ok: 0, all: 0 }
+    setFocused(true)
     inputRef.current?.focus()
   }, [duration])
 
@@ -114,11 +151,24 @@ export default function Typing() {
     setShift(Math.max(0, line - 1) * lh)
   }, [typed.length, words, fontsTick])
 
+  // Caret glides to the next letter (layout offsets, so the words' own enter animation doesn't skew it).
+  useLayoutEffect(() => {
+    const word = activeRef.current
+    if (!word) return
+    const letters = word.children
+    const end = input.length >= letters.length
+    const l = letters[end ? letters.length - 1 : input.length]
+    if (!l) return
+    setCaret({ x: l.offsetLeft + (end ? l.offsetWidth : 0) - 1, y: l.offsetTop + l.offsetHeight * 0.12, h: l.offsetHeight * 0.8 })
+  }, [input, typed.length, words, fontsTick, round])
+
   // Typing anywhere focuses the test; Tab, Esc or Ctrl+R restarts (Ctrl+R no longer reloads the page here).
   useEffect(() => {
     const onKey = (e) => {
       const ctrlR = (e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'r'
-      if (e.key === 'Tab' || e.key === 'Escape' || ctrlR) {
+      // Tab restarts only mid-test, so before typing (and after a restart) Tab moves focus to the controls.
+      const tab = e.key === 'Tab' && status === 'run' && document.activeElement === inputRef.current
+      if (tab || e.key === 'Escape' || ctrlR) {
         e.preventDefault()
         reset()
         return
@@ -150,7 +200,8 @@ export default function Typing() {
       if (idx > words.length - 40) setWords((w) => [...w, ...makeWords(60)])
       return
     }
-    if (v.length > target.length + 8) return
+    // Few extras, so a run of wrong keys can't shove the rest of the line far.
+    if (v.length > target.length + 4) return
     for (let p = input.length; p < v.length; p++) {
       keys.current.all++
       if (v[p] === target[p]) keys.current.ok++
@@ -172,7 +223,7 @@ export default function Typing() {
   const idx = typed.length
   const c = result?.chars
   return (
-    <Swap k={status === 'done' && result ? 'done' : 'play'}>
+    <Swap fit k={status === 'done' && result ? 'done' : 'play'}>
       {status === 'done' && result ? (
         <Result
           title={`English, ${duration} seconds`}
@@ -199,10 +250,10 @@ export default function Typing() {
             {/* Each second ticks in softly instead of snapping. */}
             <motion.span
               key={status === 'run' ? Math.ceil(left) : duration}
-              initial={{ opacity: 0.35, y: -4 }}
+              initial={{ opacity: 0.7, y: -2 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.2, ease: EASE }}
-              className="num inline-block text-3xl text-accent"
+              className="num inline-block min-w-[2ch] text-right text-3xl text-accent"
             >
               {status === 'run' ? Math.ceil(left) : duration}
             </motion.span>
@@ -210,7 +261,7 @@ export default function Typing() {
 
           <div className="relative mt-10" onClick={() => inputRef.current?.focus()}>
             <input
-              ref={inputRef}
+              ref={attachInput}
               value={input}
               onChange={onChange}
               onKeyDown={onKeyDown}
@@ -226,43 +277,35 @@ export default function Typing() {
             />
             <div
               ref={boxRef}
-              className={`num h-[4.8em] overflow-hidden text-2xl leading-[1.6] transition-[filter,opacity] duration-200 md:text-3xl ${focused ? '' : 'opacity-40 blur-[3px]'}`}
+              className={`num relative h-[4.8em] overflow-hidden text-2xl leading-[1.6] transition-[filter,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] md:text-3xl ${focused ? '' : 'opacity-40 blur-[3px]'}`}
             >
-              <div
+              {/* Restart: the old words fade out while the new ones rise in (no empty frame). */}
+              <AnimatePresence mode="popLayout">
+              <motion.div
                 key={round}
-                className={status === 'run' ? 'transition-transform duration-150 ease-out' : ''}
+                // easeIn: the old words hold while the new ones rise in, so the box never looks empty.
+                exit={{ opacity: 0, transition: { duration: 0.2, ease: 'easeIn' } }}
+                className={`relative ${status === 'run' ? 'transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]' : ''}`}
                 style={{ transform: `translateY(-${shift}px)` }}
               >
-                {words.map((w, i) => {
-                  const t = i < idx ? typed[i] : i === idx ? input : ''
-                  const wrong = i < idx && t !== w
-                  const len = Math.max(w.length, i <= idx ? t.length : 0)
-                  return (
-                    <span
-                      key={i}
-                      ref={i === idx ? activeRef : null}
-                      style={i < 48 ? { animationDelay: `${i * 6}ms` } : undefined}
-                      className={`word-in mr-[0.55em] inline-block underline decoration-2 underline-offset-[6px] transition-[text-decoration-color] duration-200 ${wrong ? 'decoration-danger/70' : 'decoration-transparent'}`}
-                    >
-                      {Array.from({ length: len }, (_, j) => {
-                        const ch = j < w.length ? w[j] : t[j]
-                        let cls = 'text-muted/55'
-                        if (i <= idx && j < t.length) cls = j >= w.length ? 'text-danger/70' : t[j] === w[j] ? 'text-ink' : 'text-danger'
-                        const atCaret = i === idx && focused && j === t.length
-                        const caretEnd = i === idx && focused && t.length >= len && j === len - 1
-                        const caret = atCaret ? 'caret-before' : caretEnd ? 'caret-after' : ''
-                        return (
-                          <span key={j} className={`relative ${cls} ${caret} ${caret && status === 'idle' ? 'caret-blink' : ''}`}>
-                            {ch}
-                          </span>
-                        )
-                      })}
-                    </span>
-                  )
-                })}
-              </div>
+                {words.map((w, i) => (
+                  <Word key={i} w={w} t={i < idx ? typed[i] : i === idx ? input : ''} i={i} past={i < idx} active={i === idx} activeRef={setActive} />
+                ))}
+                {/* One caret that glides between letters; blinks while waiting for the first key. */}
+                <motion.span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 top-0 w-[2px]"
+                  style={{ height: caret.h }}
+                  initial={false}
+                  animate={{ x: caret.x, y: caret.y, opacity: focused ? 1 : 0 }}
+                  transition={{ duration: 0.09, ease: EASE, opacity: { duration: 0.15 } }}
+                >
+                  <span className={`block h-full rounded-[2px] bg-accent ${status === 'idle' ? 'blink' : ''}`} />
+                </motion.span>
+              </motion.div>
+              </AnimatePresence>
             </div>
-            <AnimatePresence initial={false}>
+            <AnimatePresence>
               {!focused && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.96 }}

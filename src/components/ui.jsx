@@ -1,13 +1,47 @@
-import { useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
 
 export const EASE = [0.16, 1, 0.3, 1]
 
+// Animates its own height (or width with `horizontal`) to follow its content, so a swap to a smaller/bigger
+// view never snaps what sits next to it. Clips only while resizing (focus rings stay visible at rest).
+export function Fit({ children, className = '', horizontal = false }) {
+  const inner = useRef(null)
+  const [size, setSize] = useState('auto')
+  const [moving, setMoving] = useState(false)
+  useLayoutEffect(() => {
+    const el = inner.current
+    const ro = new ResizeObserver(() => setSize(horizontal ? el.offsetWidth : el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [horizontal])
+  return (
+    <motion.div
+      className={className}
+      initial={false}
+      animate={horizontal ? { width: size } : { height: size }}
+      // Ease-in-out, not EASE: an expo-out resize moves everything below ~70% of the way in the first frames.
+      transition={{ duration: 0.34, ease: [0.65, 0, 0.35, 1] }}
+      onAnimationStart={() => setMoving(true)}
+      onAnimationComplete={() => setMoving(false)}
+      style={{ overflow: moving ? 'clip' : 'visible' }}
+    >
+      <div ref={inner} className={horizontal ? 'w-max' : ''}>
+        {children}
+      </div>
+    </motion.div>
+  )
+}
+
+// True inside a Swap: its cross-fade already fades the content in.
+const InSwap = createContext(false)
+
 // Cross-fades its content whenever `k` changes. Use for any in-game state swap so nothing pops in.
+// `fit` also animates the height (use it for play <-> result swaps).
 // Never pass initial={false} to an AnimatePresence that wraps content mounted later: Motion then skips
 // the enter animation of every motion element mounted inside it afterwards (e.g. casino reels, result panels).
-export function Swap({ k, children, className = '' }) {
-  return (
+export function Swap({ k, children, className = '', fit = false }) {
+  const swap = (
     <AnimatePresence mode="wait">
       <motion.div
         key={k}
@@ -17,10 +51,11 @@ export function Swap({ k, children, className = '' }) {
         exit={{ opacity: 0, y: -6, scale: 0.98, pointerEvents: 'none' }}
         transition={{ duration: 0.18, ease: EASE }}
       >
-        {children}
+        <InSwap.Provider value={true}>{children}</InSwap.Provider>
       </motion.div>
     </AnimatePresence>
   )
+  return fit ? <Fit>{swap}</Fit> : swap
 }
 
 // Counts the leading number of a stat up from 0 ("82 wpm", "1,204 pts", "64%"). Plain text stays as is.
@@ -54,7 +89,7 @@ export function useEnter(fn, active = true) {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 h-10 text-sm font-medium transition-[transform,scale,background-color,color,border-color] duration-200 active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none'
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 h-10 text-sm font-medium transition-[transform,scale,background-color,color,border-color,filter] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.97] disabled:opacity-40 disabled:pointer-events-none'
 
 export function Button({ variant = 'primary', className = '', ...props }) {
   const look =
@@ -79,8 +114,10 @@ export function Segmented({ options, value, onChange, label }) {
             role="radio"
             aria-checked={on}
             disabled={off}
+            // Mouse clicks keep focus where it was (e.g. a game's input), so nothing blurs and re-focuses.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => onChange(v)}
-            className={`h-8 rounded-lg px-3 text-sm transition-[color,background-color,opacity] duration-200 disabled:pointer-events-none disabled:opacity-35 ${on ? 'bg-surface-2 text-accent' : 'text-muted hover:text-ink'}`}
+            className={`h-8 rounded-lg px-2.5 text-sm sm:px-3 transition-[color,background-color,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] disabled:pointer-events-none disabled:opacity-35 ${on ? 'bg-surface-2 text-accent' : 'text-muted hover:text-ink'}`}
           >
             {text}
           </button>
@@ -102,11 +139,13 @@ export function Stat({ label, value, big = false }) {
 }
 
 // Result panel shown when a run ends.
+// Inside a Swap only the spring runs (the Swap already fades it in: no double entrance).
 export function Result({ title, stats, isNew, onAgain, children }) {
   useEnter(onAgain)
+  const inSwap = useContext(InSwap)
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24, scale: 0.96 }}
+      initial={{ opacity: inSwap ? 1 : 0, y: 24, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 220, damping: 24 }}
       className="relative mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-line bg-surface p-6 md:p-8"

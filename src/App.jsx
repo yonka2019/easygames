@@ -1,5 +1,5 @@
-import { Suspense, useEffect } from 'react'
-import { AnimatePresence, MotionConfig, motion } from 'motion/react'
+import { Suspense, useEffect, useLayoutEffect, useRef } from 'react'
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'motion/react'
 import { Header } from './components/Header'
 import { Home } from './components/Home'
 import { GameFrame } from './components/GameFrame'
@@ -27,7 +27,16 @@ function NotFound() {
 export default function App() {
   const route = useRoute()
   const game = route.page === 'game' ? byId(route.id) : null
-  const key = route.page === 'game' ? route.id : 'home'
+  const key = route.page === 'game' ? route.id : route.page
+  const reduce = useReducedMotion()
+
+  // Back to home returns to where you were in the list; any other page starts at the top.
+  const homeY = useRef(0)
+  const prev = useRef(key)
+  useLayoutEffect(() => {
+    if (prev.current === 'home') homeY.current = window.scrollY
+    prev.current = key
+  }, [key])
 
   // Fetch every game chunk once while idle, so opening a game never shows a loading step.
   useEffect(() => {
@@ -40,12 +49,20 @@ export default function App() {
   }, [key, game])
 
   return (
-    <MotionConfig reducedMotion="user">
+    // Reduced motion: every Motion animation jumps to its end state (opacity too), so nothing moves or fades.
+    <MotionConfig reducedMotion="user" skipAnimations={!!reduce}>
       <div className="flex min-h-[100dvh] flex-col">
         <Header />
         {/* Scroll after the old page has left, so it doesn't snap to the top mid-fade.
             No initial={false} here: it would block enter animations of everything mounted later inside the page. */}
-        <AnimatePresence mode="wait" onExitComplete={() => window.scrollTo(0, 0)}>
+        <AnimatePresence
+          mode="wait"
+          onExitComplete={() => {
+            window.scrollTo(0, 0)
+            // Home mounts right after this callback: restore its position once it has height again.
+            if (key === 'home' && homeY.current) requestAnimationFrame(() => window.scrollTo(0, homeY.current))
+          }}
+        >
           <motion.main
             key={key}
             className="flex-1"

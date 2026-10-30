@@ -118,6 +118,8 @@ export default function Sequence() {
             aria-label={`Tile ${i + 1}`}
             disabled={state !== 'input'}
             onPointerDown={() => tap(i)}
+            // Keyboard (Enter/Space) clicks have detail 0; pointer taps already ran on pointerdown.
+            onClick={(e) => e.detail === 0 && tap(i)}
             className={`aspect-square rounded-md transition-[background-color,scale] ease-out ${
               lit === i
                 ? 'scale-[1.04] bg-accent duration-150 motion-reduce:scale-100'

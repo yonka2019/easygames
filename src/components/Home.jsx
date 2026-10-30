@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { ShuffleIcon, ArrowRightIcon } from '@phosphor-icons/react'
 import { GAMES } from '../games/registry'
-import { getBest, resetAll } from '../lib/store'
+import { getBest, hasScores, resetAll } from '../lib/store'
 import { gameHref } from '../lib/route'
 import { pick, shuffle } from '../lib/util'
 import { Button } from './ui'
@@ -110,7 +110,9 @@ export function Home() {
     if (!window.confirm('Delete all saved scores? This cannot be undone.')) return
     resetAll()
     setBests(Object.fromEntries(GAMES.map((g) => [g.id, null])))
+    setStored(false)
   }
+  const [stored, setStored] = useState(hasScores)
 
   const lit = useLit()
   const [intro] = useState(() => !introPlayed)
@@ -118,7 +120,6 @@ export function Home() {
     introPlayed = true
   }, [])
   const enter = (delay) => (intro ? rise(delay) : {})
-  const hasScores = Object.values(bests).some((v) => v !== null)
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 md:px-8">
@@ -173,7 +174,7 @@ export function Home() {
 
       <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-line py-8 text-sm text-muted">
         <span>Scores are saved in this browser only.</span>
-        {hasScores && (
+        {stored && (
           <button type="button" onClick={reset} className="underline-offset-4 hover:text-danger hover:underline">
             Reset all scores
           </button>

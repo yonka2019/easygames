@@ -78,7 +78,7 @@ export default function Reaction() {
   }[state]
 
   return (
-    <Swap k={state === 'done' && result ? 'done' : 'play'}>
+    <Swap fit k={state === 'done' && result ? 'done' : 'play'}>
       {state === 'done' && result ? (
         <Result
           title={`Reaction time, ${ROUNDS} tries`}
@@ -95,7 +95,7 @@ export default function Reaction() {
           <button
             type="button"
             onPointerDown={press}
-            className={`grid min-h-[380px] w-full select-none place-items-center rounded-xl border px-6 text-center md:min-h-[460px] ${state === 'go' ? 'transition-none [&>[data-s]:not([data-s=go])]:invisible' : 'transition-colors duration-200'} ${look}`}
+            className={`grid min-h-[380px] w-full select-none place-items-center rounded-xl border px-6 text-center md:min-h-[460px] ${state === 'go' ? 'transition-none [&>[data-s]:not([data-s=go])]:invisible' : 'transition-[background-color,border-color,color,scale] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-[0.995]'} ${look}`}
           >
             {/* Messages share one grid cell so they cross-fade without moving each other. On 'go' the old one is hidden by CSS at once. */}
             <AnimatePresence initial={false} custom={state}>
@@ -136,7 +136,7 @@ export default function Reaction() {
           </button>
           <div className="mt-6 flex justify-center gap-2" aria-label={`${times.length} of ${ROUNDS} tries done`}>
             {Array.from({ length: ROUNDS }, (_, i) => (
-              <span key={i} className={`h-1.5 w-10 rounded-full transition-colors duration-300 ${i < times.length ? 'bg-accent' : 'bg-surface-2'}`} />
+              <span key={i} className={`h-1.5 w-10 rounded-full transition-colors duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${i < times.length ? 'bg-accent' : 'bg-surface-2'}`} />
             ))}
           </div>
           <p className="mt-4 text-center text-sm text-muted">Space works too.</p>
