@@ -63,7 +63,7 @@ export function HeroShowcase() {
           </span>
         </div>
         <div className="relative mt-5 h-[250px] md:h-[280px]" aria-hidden="true">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait">
             <motion.div
               key={game.id}
               className="absolute inset-0"

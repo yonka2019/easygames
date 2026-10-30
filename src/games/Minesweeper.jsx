@@ -180,7 +180,7 @@ export default function Minesweeper() {
 
       <div className="relative mt-6 overflow-x-auto pb-2">
         {/* New board/difficulty: the old board fades out on top, click-through; the new one is live at once. */}
-        <AnimatePresence mode="popLayout" initial={false}>
+        <AnimatePresence mode="popLayout">
           <motion.div
             key={`${level}:${round}`}
             initial={{ opacity: 0, scale: 0.98 }}

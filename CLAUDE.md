@@ -1,6 +1,6 @@
 # easygames
 
-Browser mini-games site (13 games). Pure client-side SPA, no backend, no tests. Not a git repo (yet).
+Browser mini-games site (14 games). Pure client-side SPA, no backend, no tests. Repo: https://github.com/yonka2019/easygames (branch `main`, tags `vX.Y.Z`, `CHANGELOG.md`).
 
 ## Run
 - `npm run dev` → http://localhost:25753 (`host: true`, `strictPort`, also on LAN). Same port for `npm run preview`.
@@ -42,13 +42,16 @@ Typing is imported eagerly; all others use `lazyGame()` (= `lazy` + `.preload()`
 - `.num` = mono tabular numbers. Helpers: `.dot-grid`, `.line-grid`, `.caret-before/after`, `.blink`, `.pop`, `.shake`, `.word-in`.
 - Radius: surfaces `rounded-xl`; game cells ≈6px. Max width `1200px`, gutters `px-4 md:px-8`.
 - No sharp moves: every in-game state change must animate (fade/scale/slide, 150–300ms). Exception: stimuli that measure reaction (Reaction "go") stay instant.
+- Never use `AnimatePresence initial={false}` around content that mounts motion elements later: it silently skips their enter animations (broke casino reels and result panels). Only OK around leaf nodes.
 - `html { scrollbar-gutter: stable }` stops the page shifting sideways when the scrollbar appears.
 - Reduced motion: every animation is static or disabled under `prefers-reduced-motion` (CSS media query + `useReducedMotion`).
 
 ## Notes
 - Header wordmark typing speed: `Header.jsx` `step()`. Type 260–400ms/char, delete 120ms, hold 2600ms, empty pause 450ms.
 - Icon: `public/favicon.svg` (2x2 bento, one lime tile) + `public/apple-touch-icon.png` (180px, rendered from the SVG). No og:image (user declined).
-- Casino (`Casino.jsx`): modes Slots / Roulette (European) / Levels (variants). Play money, start 100 coins, bets 1/5/10/25; score = peak balance (reported on Cash out or broke). Slots ≈94.6% return, roulette 97.3%. Levels: success rate 100% → −5% per level (min 5%), one miss ends; score = levels cleared. `fmt(v, variant)` gets the variant.
+- Casino (id `casino`, `Casino.jsx`): modes Slots / Roulette (European) / Levels / Pinpoint (variants). Pinpoint: number 0–100, click its spot on a blank line, 10 rounds, score = avg error (lower better; registry `better` can be a function of the variant). Play money, start 200 credits (hand-over animation `Deal` on every fresh bankroll), bets 1/5/10/25; score = peak balance (reported on Cash out or broke). Slots: bigger bet adds weight to star/diamond/seven (`BOOST`): return 94.6% / 96% / 97.5% / 99% and big-win odds ×1 / 3.5 / 3.9 / 4.3 for bets 1/5/10/25. Roulette 97.3%. Levels: success rate 100% → −5% per level (min 5%), one miss ends; score = levels cleared. `fmt(v, variant)` gets the variant.
+- Claude run art (world size, sprites, `drawSprite`/`drawCactus`/`drawFly`, jump constants) lives in `src/games/claudeArt.js`, shared by the game and its home preview (canvas autopilot in `demos.jsx`, zoomed to a 380-wide view).
+- Claude run (id `dino`, `Dino.jsx`): Claude (12×8 pixel figure from `ClaudeFigure.jsx`, `#d97757`, black eyes) jumps cacti; flying bugs come low (jump only), mid (duck), high (run under) or bobbing. Canvas runner in a fixed 600×170 world scaled to width. rAF loop with clamped delta, hold-to-jump-higher, duck, birds after 200 pts, speed 330→820 px/s. Colors read from CSS vars (refreshed on theme change). Score drawn on canvas.
 - Aim trainer: score = avg ms per target; result also shows Precision (avg closeness to center) and Accuracy (misses).
 - Home green glow: `useLit()` in `Home.jsx`. 1 random tile every 4s, 1.2s fade. Static random pick under reduced motion.
 - Type race (id `typing`, file `Typing.jsx`): Tab, Esc or Ctrl+R restarts (Ctrl+R is caught, so the page doesn't reload).

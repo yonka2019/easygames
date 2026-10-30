@@ -1,6 +1,6 @@
 # easygames
 
-13 browser games: casino (slots, roulette, levels), type race, math sprint, number memory, sequence, reaction time, aim trainer, chimp test, memory pairs, word guess, snake, minesweeper, 2048.
+14 browser games: claude run, casino (slots, roulette, levels, pinpoint), type race, math sprint, number memory, sequence, reaction time, aim trainer, chimp test, memory pairs, word guess, snake, minesweeper, 2048.
 
 Scores save to this browser only (localStorage).
 

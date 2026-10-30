@@ -96,7 +96,7 @@ export default function NumberMemory() {
     >
       {/* min-h fits every phase, so swaps don't resize the card. */}
       <div className="relative grid min-h-52 place-items-center">
-        <AnimatePresence mode="popLayout" initial={false}>
+        <AnimatePresence mode="popLayout">
           <Phase key={state}>
             {state === 'idle' && (
               <>

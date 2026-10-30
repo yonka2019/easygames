@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { HeartIcon, LeafIcon, LightningIcon, MoonIcon, StarIcon, SunIcon, FlagIcon, CherriesIcon, BellIcon, DiamondIcon, NumberSevenIcon, CloverIcon } from '@phosphor-icons/react'
+import { cssVar } from '../lib/util'
+import { CACTI, CLAUDE_ORANGE, CPX, DINO_X, GRAVITY, GROUND, H, JUMP, RUN, STAND, STAND_H, STAND_W, drawCactus, drawSprite } from '../games/claudeArt'
 import { EASE, Swap } from './ui'
 import { TypingDemo } from './TypingDemo'
 
@@ -433,7 +435,7 @@ function CasinoDemo() {
   const allStopped = stopped(2)
   return (
     <div className="flex h-full flex-col">
-      <Top left={`${100 + spin * 15} coins`} right="slots" />
+      <Top left={`${200 + spin * 15} credits`} right="slots" />
       <div className="grid flex-1 place-items-center">
         <div className="relative grid w-full max-w-[320px] grid-cols-3 gap-3 rounded-xl border border-line p-3">
           {[0, 1, 2].map((r) => {
@@ -464,6 +466,120 @@ function CasinoDemo() {
   )
 }
 
+// Claude run: a small autopilot of the real game (same sprites and jump physics); jumps when a cactus gets close.
+const PREVIEW_SPEED = 300
+const VIEW = 380 // narrower slice of the world than the game, so sprites read bigger in the card
+
+function DinoDemo() {
+  const ref = useRef(null)
+  const reduce = useReducedMotion()
+
+  useEffect(() => {
+    const c = ref.current
+    const ctx = c.getContext('2d')
+    const cactus = (x) => {
+      const size = CACTI[Math.random() < 0.6 ? 0 : 1]
+      const count = Math.random() < 0.7 ? 1 : 2
+      return { x, y: GROUND - size.h, w: size.w * count + (count - 1) * 4, h: size.h, unit: size.w, count }
+    }
+    const g = {
+      t: 0,
+      dist: 0,
+      y: 0,
+      vy: 0,
+      obs: [cactus(300)],
+      next: 300,
+      clouds: [{ x: 70, y: 34 }, { x: 230, y: 22 }, { x: 340, y: 46 }],
+      bumps: Array.from({ length: 9 }, (_, i) => ({ x: i * 46 + Math.random() * 30, w: 2 + Math.random() * 4 })),
+    }
+    let k
+    const read = () => {
+      k = { ink: cssVar('--text'), muted: cssVar('--muted'), line: cssVar('--line'), font: cssVar('--font-mono') || 'monospace' }
+    }
+    read()
+
+    const draw = () => {
+      const dpr = window.devicePixelRatio || 1
+      const cw = c.clientWidth
+      if (c.width !== Math.round(cw * dpr)) {
+        c.width = Math.round(cw * dpr)
+        c.height = Math.round(cw * (H / VIEW) * dpr)
+      }
+      const s = (cw / VIEW) * dpr
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, c.width, c.height)
+      ctx.setTransform(s, 0, 0, s, 0, 0)
+      ctx.fillStyle = k.line
+      g.clouds.forEach((cl) => {
+        ctx.fillRect(cl.x, cl.y, 34, 6)
+        ctx.fillRect(cl.x + 6, cl.y - 5, 18, 5)
+      })
+      ctx.fillStyle = k.muted
+      ctx.fillRect(0, GROUND, VIEW, 1.5)
+      g.bumps.forEach((b) => ctx.fillRect(b.x, GROUND + 5, b.w, 1.5))
+      ctx.fillStyle = k.ink
+      g.obs.forEach((o) => drawCactus(ctx, o))
+      ctx.fillStyle = CLAUDE_ORANGE
+      const rows = g.y > 0 ? STAND : RUN[Math.floor(g.t * 10) % 2]
+      drawSprite(ctx, rows, DINO_X, GROUND - STAND_H - g.y, CPX)
+      ctx.fillStyle = k.muted
+      ctx.font = `600 13px ${k.font}`
+      ctx.textAlign = 'right'
+      ctx.fillText(String(Math.floor(g.dist * 0.025)).padStart(5, '0'), VIEW - 10, 20)
+    }
+
+    if (reduce) return draw()
+
+    let id
+    let last = performance.now()
+    let n = 0
+    const loop = (now) => {
+      const dt = Math.max(0, Math.min(0.033, (now - last) / 1000))
+      last = now
+      if (++n % 30 === 0) read()
+      const dx = PREVIEW_SPEED * dt
+      g.t += dt
+      g.dist += dx
+      g.obs.forEach((o) => (o.x -= dx))
+      g.obs = g.obs.filter((o) => o.x + o.w > -10)
+      g.next -= dx
+      if (g.next <= 0) {
+        g.obs.push(cactus(VIEW + 20))
+        g.next = 220 + Math.random() * 160
+      }
+      g.clouds.forEach((cl) => {
+        cl.x -= dx * 0.2
+        if (cl.x < -40) cl.x = VIEW + Math.random() * 60
+      })
+      g.bumps.forEach((b) => {
+        b.x -= dx
+        if (b.x < -8) b.x += VIEW + 40
+      })
+      // Autopilot: hop when the next cactus is about to reach Claude.
+      const o = g.obs.find((x) => x.x + x.w > DINO_X)
+      if (o && g.y === 0 && g.vy === 0 && o.x - (DINO_X + STAND_W) < 34) {
+        g.vy = JUMP
+        g.y = 0.01
+      }
+      if (g.y > 0) {
+        g.vy += GRAVITY * dt
+        g.y = Math.max(0, g.y - g.vy * dt)
+        if (g.y === 0) g.vy = 0
+      }
+      draw()
+      id = requestAnimationFrame(loop)
+    }
+    id = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(id)
+  }, [reduce])
+
+  return (
+    <div className="grid h-full place-items-center">
+      <canvas ref={ref} className="block w-full rounded-lg" style={{ aspectRatio: `${VIEW} / ${H}` }} />
+    </div>
+  )
+}
+
 export const DEMOS = {
   typing: TypingDemo,
   math: MathDemo,
@@ -478,4 +594,5 @@ export const DEMOS = {
   pairs: PairsDemo,
   2048: G2048Demo,
   casino: CasinoDemo,
+  dino: DinoDemo,
 }

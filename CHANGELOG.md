@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.2.0] : 2026-10-30
+
+- New game: Claude run (offline-dino style runner, cacti and flying bugs).
+- Casino: Pinpoint mode (find the number on a 0–100 line).
+- Casino: 200 starting credits with a hand-over animation.
+- Casino: bigger bets make big wins likelier; bets above balance disabled.
+- Fixed: casino reels and result panels not animating.
+- Home preview of Claude run uses the real game art.
+
 ## [v0.1.0] : 2026-10-29
 
 ----------- ENV CHANGES -------------

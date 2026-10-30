@@ -4,9 +4,11 @@ import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react
 export const EASE = [0.16, 1, 0.3, 1]
 
 // Cross-fades its content whenever `k` changes. Use for any in-game state swap so nothing pops in.
+// Never pass initial={false} to an AnimatePresence that wraps content mounted later: Motion then skips
+// the enter animation of every motion element mounted inside it afterwards (e.g. casino reels, result panels).
 export function Swap({ k, children, className = '' }) {
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="wait">
       <motion.div
         key={k}
         className={className}
@@ -69,14 +71,16 @@ export function Segmented({ options, value, onChange, label }) {
         const v = typeof o === 'object' ? o.value : o
         const text = typeof o === 'object' ? o.label : o
         const on = v === value
+        const off = typeof o === 'object' && o.disabled
         return (
           <button
             key={v}
             type="button"
             role="radio"
             aria-checked={on}
+            disabled={off}
             onClick={() => onChange(v)}
-            className={`h-8 rounded-lg px-3 text-sm transition-colors ${on ? 'bg-surface-2 text-accent' : 'text-muted hover:text-ink'}`}
+            className={`h-8 rounded-lg px-3 text-sm transition-[color,background-color,opacity] duration-200 disabled:pointer-events-none disabled:opacity-35 ${on ? 'bg-surface-2 text-accent' : 'text-muted hover:text-ink'}`}
           >
             {text}
           </button>

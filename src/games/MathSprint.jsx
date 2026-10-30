@@ -100,7 +100,7 @@ export default function MathSprint() {
   // popLayout: "Play again" starts the clock at once, so the new view must not wait for the old one to leave.
   return (
     <div className="relative">
-      <AnimatePresence mode="popLayout" initial={false}>
+      <AnimatePresence mode="popLayout">
         {done ? (
           // Result animates its own entrance; this wrapper only fades it out.
           <motion.div key="done" exit={fade.exit} transition={fade.transition}>

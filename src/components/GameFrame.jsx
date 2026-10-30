@@ -34,7 +34,8 @@ export function GameFrame({ game, children }) {
 
   const report = useCallback(
     (value) => {
-      const r = submitScore(game.id, variant, value, game.better)
+      const better = typeof game.better === 'function' ? game.better(variant) : game.better
+      const r = submitScore(game.id, variant, value, better)
       setBest(r.best)
       fire(r.isNew ? 'best' : 'done')
       if (r.isNew) setFlash((f) => f + 1)

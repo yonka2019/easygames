@@ -15,6 +15,7 @@ import {
   PokerChipIcon,
 } from '@phosphor-icons/react'
 import { fmtMs, fmtTime } from '../lib/util'
+import { ClaudeFigure } from '../components/ClaudeFigure'
 import Typing from './Typing.jsx' // eager: main game, no loading step on refresh
 
 // lazy() plus preload(), so home tiles can fetch the chunk on hover before the click.
@@ -54,7 +55,7 @@ export const GAMES = [
   },
   {
     id: 'sequence', name: 'Sequence', blurb: 'Repeat the growing pattern.',
-    cat: 'Memory', icon: SquaresFourIcon, size: 'wide', tone: 'plain',
+    cat: 'Memory', icon: SquaresFourIcon, tone: 'plain',
     better: 'high', fmt: (v) => `level ${v}`,
     Component: lazyGame(() => import('./Sequence.jsx')),
   },
@@ -72,7 +73,7 @@ export const GAMES = [
   },
   {
     id: 'mines', name: 'Minesweeper', blurb: 'Clear the field. Flag the mines.',
-    cat: 'Classic', icon: BombIcon, size: 'wide', tone: 'plain',
+    cat: 'Classic', icon: BombIcon, tone: 'plain',
     better: 'low', variant: 'easy', fmt: (v) => fmtTime(v),
     Component: lazyGame(() => import('./Minesweeper.jsx')),
   },
@@ -95,11 +96,17 @@ export const GAMES = [
     Component: lazyGame(() => import('./G2048.jsx')),
   },
   {
-    id: 'casino', name: 'Casino', blurb: 'Slots, roulette and a risk ladder. Play money.',
+    id: 'casino', name: 'Casino', blurb: 'Slots, roulette, risk ladder, pinpoint. Play money.',
     cat: 'Luck', icon: PokerChipIcon, size: 'wide', tone: 'dots',
-    better: 'high', variant: 'slots', vlabel: (v) => v[0].toUpperCase() + v.slice(1),
-    fmt: (v, mode) => (mode === 'levels' ? `level ${v}` : `${v.toLocaleString()} coins`),
+    better: (mode) => (mode === 'pinpoint' ? 'low' : 'high'), variant: 'slots', vlabel: (v) => v[0].toUpperCase() + v.slice(1),
+    fmt: (v, mode) => (mode === 'levels' ? `level ${v}` : mode === 'pinpoint' ? `${v} off` : `${v.toLocaleString()} credits`),
     Component: lazyGame(() => import('./Casino.jsx')),
+  },
+  {
+    id: 'dino', name: 'Claude run', blurb: 'Jump the cacti, dodge the bugs.',
+    cat: 'Reflex', icon: ClaudeFigure, size: 'wide', tone: 'lines',
+    better: 'high', fmt: (v) => `${v.toLocaleString()} pts`,
+    Component: lazyGame(() => import('./Dino.jsx')),
   },
 ]
 

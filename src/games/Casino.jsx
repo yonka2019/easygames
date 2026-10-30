@@ -3,6 +3,7 @@ import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react
 import {
   BellIcon,
   CherriesIcon,
+  CoinIcon,
   CloverIcon,
   DiamondIcon,
   NumberSevenIcon,
@@ -12,13 +13,15 @@ import {
 import { useGame } from '../components/GameFrame'
 import { Button, EASE, Kbd, Result, Segmented, Swap } from '../components/ui'
 
-// Play money only. Slots ≈94.6% return, European roulette 97.3%: the house wins over time, like the real thing.
-const START = 100
+// Play money only. Slots return 94.6% at bet 1 up to 99% at bet 25 (bigger bets make rare symbols likelier);
+// European roulette 97.3%. The house still wins over time.
+const START = 200
 const BETS = ['1', '5', '10', '25']
 const MODES = [
   { value: 'slots', label: 'Slots' },
   { value: 'roulette', label: 'Roulette' },
   { value: 'levels', label: 'Levels' },
+  { value: 'pinpoint', label: 'Pinpoint' },
 ]
 
 const weighted = (items) => {
@@ -27,18 +30,18 @@ const weighted = (items) => {
   return items.findIndex((s) => (r -= s.w) < 0)
 }
 
-// Balance that counts to its new value instead of jumping.
-function Coins({ value }) {
+// Balance that counts to its new value instead of jumping. `start` makes the first count run up from there.
+function Coins({ value, start }) {
   const reduce = useReducedMotion()
-  const [n, setN] = useState(value)
-  const from = useRef(value)
+  const [n, setN] = useState(reduce ? value : (start ?? value))
+  const from = useRef(reduce ? value : (start ?? value))
   useEffect(() => {
     if (reduce) {
       from.current = value
       return setN(value)
     }
     const c = animate(from.current, value, {
-      duration: 0.6,
+      duration: from.current === start ? 0.9 : 0.6,
       ease: EASE,
       onUpdate: (v) => {
         from.current = v
@@ -62,6 +65,35 @@ function useBank() {
   return { bank, settle, reset }
 }
 
+// Starting credits handed over: a few coins fly up into the balance with a "+200" tag. Off under reduced motion.
+function Deal({ amount }) {
+  const reduce = useReducedMotion()
+  if (reduce) return null
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+      <motion.span
+        className="num absolute -top-5 right-0 text-sm font-medium text-accent"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: [0, 1, 1, 0], y: [10, 0, -4, -12] }}
+        transition={{ duration: 1.3, times: [0, 0.2, 0.75, 1], ease: EASE }}
+      >
+        +{amount}
+      </motion.span>
+      {Array.from({ length: 7 }, (_, i) => (
+        <motion.span
+          key={i}
+          className="absolute bottom-0 right-6 text-accent"
+          initial={{ opacity: 0, x: (i - 3) * 14, y: 46, scale: 0.6 }}
+          animate={{ opacity: [0, 1, 1, 0], x: [(i - 3) * 14, (i - 3) * 6, 0], y: [46, 18, 0], scale: [0.6, 1, 0.5] }}
+          transition={{ duration: 0.55, delay: i * 0.06, ease: 'easeOut', opacity: { duration: 0.55, delay: i * 0.06, times: [0, 0.2, 0.8, 1] } }}
+        >
+          <CoinIcon size={16} weight="fill" />
+        </motion.span>
+      ))}
+    </div>
+  )
+}
+
 /* ---------- Slots ---------- */
 
 const SYMS = [
@@ -74,7 +106,20 @@ const SYMS = [
   { id: 'seven', Icon: NumberSevenIcon, w: 1, pay: 500, tint: 'text-danger' },
 ]
 const CELL = 84
-const roll = () => weighted(SYMS)
+// Bigger bets add weight to star, diamond and seven (tuned offline for the returns below).
+const BOOST = [
+  { min: 25, a: 2.655, rtp: 99, big: 4.3 },
+  { min: 10, a: 2.436, rtp: 97.5, big: 3.9 },
+  { min: 5, a: 2.187, rtp: 96, big: 3.5 },
+  { min: 1, a: 0, rtp: 94.6, big: 1 },
+]
+const RARE = { star: 1, diamond: 0.7, seven: 0.35 }
+const boostFor = (bet) => BOOST.find((b) => bet >= b.min) ?? BOOST.at(-1)
+const reelFor = (bet) => {
+  const { a } = boostFor(bet)
+  return SYMS.map((s) => ({ ...s, w: s.w + a * (RARE[s.id] ?? 0) }))
+}
+const roll = (reel = SYMS) => weighted(reel)
 
 // Multiplier on the bet (stake included). Center line only.
 function slotPay([a, b, c]) {
@@ -122,8 +167,9 @@ function Slots({ bet, busy, setBusy, settle }) {
 
   const go = useCallback(() => {
     if (busy) return
-    const next = [0, 1, 2].map(() => [roll(), roll(), roll()])
-    setStrips(view.map((old, r) => [...old, ...Array.from({ length: 16 + r * 5 }, roll), ...next[r]]))
+    const reel = reelFor(bet)
+    const next = [0, 1, 2].map(() => [roll(reel), roll(reel), roll(reel)])
+    setStrips(view.map((old, r) => [...old, ...Array.from({ length: 16 + r * 5 }, () => roll(reel)), ...next[r]]))
     pending.current = { next, bet }
     setWin(null)
     setBusy(true)
@@ -172,7 +218,7 @@ function Slots({ bet, busy, setBusy, settle }) {
               <span className="text-muted">No win</span>
             )
           ) : (
-            <span className="text-muted">3 in the middle row win.</span>
+            <span className="text-muted">3 in the middle row win. Bigger bets = bigger wins more often.</span>
           )}
         </Swap>
       </div>
@@ -459,6 +505,130 @@ function Levels({ onFail }) {
   )
 }
 
+/* ---------- Pinpoint: click where the number sits on a blank 0–100 line ---------- */
+
+const PIN_ROUNDS = 10
+const randTarget = () => Math.floor(Math.random() * 101)
+
+function Pinpoint({ onDone }) {
+  const reduce = useReducedMotion()
+  const [round, setRound] = useState(0)
+  const [target, setTarget] = useState(randTarget)
+  const [pick, setPick] = useState(null) // { at, off }
+  const [errs, setErrs] = useState([])
+  const line = useRef(null)
+  const timer = useRef(null)
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const click = (e) => {
+    if (pick) return
+    const box = line.current.getBoundingClientRect()
+    const at = Math.max(0, Math.min(100, ((e.clientX - box.left) / box.width) * 100))
+    const off = Math.abs(at - target)
+    const next = [...errs, off]
+    setPick({ at, off })
+    setErrs(next)
+    timer.current = setTimeout(() => {
+      if (next.length >= PIN_ROUNDS) return onDone(next)
+      setRound((r) => r + 1)
+      setTarget(randTarget())
+      setPick(null)
+    }, reduce ? 700 : 1400)
+  }
+
+  const avg = errs.length ? errs.reduce((a, b) => a + b, 0) / errs.length : null
+  const tone = (off) => (off <= 3 ? 'text-accent' : off <= 10 ? 'text-ink' : 'text-danger')
+  const reveal = { duration: 0.45, delay: 0.15, ease: EASE }
+
+  return (
+    <div className="mx-auto max-w-[680px]">
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="text-xs text-muted">Round</div>
+          <Swap k={round}>
+            <div className="num text-3xl">
+              {round + 1}
+              <span className="text-muted">/{PIN_ROUNDS}</span>
+            </div>
+          </Swap>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-muted">Avg off</div>
+          <Swap k={errs.length}>
+            <div className="num text-3xl">{avg === null ? '-' : avg.toFixed(1)}</div>
+          </Swap>
+        </div>
+      </div>
+
+      <div className="mt-6 text-center">
+        <div className="text-sm text-muted">Find</div>
+        <Swap k={round}>
+          <div className="num text-7xl text-accent">{target}</div>
+        </Swap>
+      </div>
+
+      <div
+        ref={line}
+        onPointerDown={click}
+        className={`relative mt-8 h-24 touch-none select-none ${pick ? '' : 'cursor-crosshair'}`}
+        aria-label={`Click where ${target} is on the line`}
+      >
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-line" />
+        <span className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 bg-muted" />
+        <span className="absolute right-0 top-1/2 h-6 w-0.5 -translate-y-1/2 bg-muted" />
+        <span className="num absolute left-0 top-[calc(50%+18px)] -translate-x-1/2 text-sm text-muted">0</span>
+        <span className="num absolute right-0 top-[calc(50%+18px)] translate-x-1/2 text-sm text-muted">100</span>
+        <AnimatePresence>
+          {pick && (
+            <motion.div key={`r${round}`} className="pointer-events-none absolute inset-0" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              {/* Gap between your click and the real spot */}
+              <motion.span
+                className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent/40"
+                initial={{ left: `${pick.at}%`, width: '0%' }}
+                animate={{ left: `${Math.min(pick.at, target)}%`, width: `${Math.abs(pick.at - target)}%` }}
+                transition={reveal}
+              />
+              {/* Your click */}
+              <motion.span
+                className="absolute top-1/2 -ml-[1.5px] -mt-5 h-10 w-[3px] rounded-full bg-ink"
+                style={{ left: `${pick.at}%` }}
+                initial={{ scaleY: 0 }}
+                animate={{ scaleY: 1 }}
+                transition={{ duration: 0.18, ease: EASE }}
+              />
+              {/* Real spot slides out from your click */}
+              <motion.span
+                className="absolute top-1/2 -ml-2 -mt-2 size-4 rounded-full border-2 border-accent bg-surface"
+                initial={{ left: `${pick.at}%`, opacity: 0 }}
+                animate={{ left: `${target}%`, opacity: 1 }}
+                transition={reveal}
+              />
+              <motion.span
+                className="num absolute bottom-[calc(50%+16px)] -ml-4 w-8 text-center text-sm text-accent"
+                initial={{ left: `${pick.at}%`, opacity: 0 }}
+                animate={{ left: `${target}%`, opacity: 1 }}
+                transition={reveal}
+              >
+                {target}
+              </motion.span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div className="mt-6 h-7 text-center">
+        <Swap k={pick ? `r${round}` : 'idle'}>
+          {pick ? (
+            <span className={`num ${tone(pick.off)}`}>{pick.off < 0.5 ? 'Bullseye' : `Off by ${pick.off.toFixed(1)}`}</span>
+          ) : (
+            <span className="text-muted">Click the line where {target} is.</span>
+          )}
+        </Swap>
+      </div>
+    </div>
+  )
+}
+
 /* ---------- Shell ---------- */
 
 function useSpace(fn, active) {
@@ -483,9 +653,19 @@ export default function Casino() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [round, setRound] = useState(0)
+  const [deal, setDeal] = useState(0) // bumps on every fresh bankroll, replaying the hand-over animation
 
+  const coinMode = mode === 'slots' || mode === 'roulette'
   const stake = Math.min(Number(bet), bank.balance)
   const broke = bank.balance <= 0
+  const betOptions = BETS.map((b) => ({ value: b, label: b, disabled: Number(b) > bank.balance }))
+
+  // Can't afford the chosen bet any more: drop to the biggest one that fits.
+  useEffect(() => {
+    if (busy || Number(bet) <= bank.balance) return
+    const fit = [...BETS].reverse().find((b) => Number(b) <= bank.balance)
+    if (fit) setBet(fit)
+  }, [bank.balance, bet, busy])
 
   const cashOut = useCallback(() => {
     const r = report(bank.peak)
@@ -505,11 +685,21 @@ export default function Casino() {
     [report],
   )
 
+  const pinDone = useCallback(
+    (errs) => {
+      const avg = Math.round((errs.reduce((a, b) => a + b, 0) / errs.length) * 10) / 10
+      const r = report(avg)
+      setResult({ kind: 'pinpoint', avg, best: Math.min(...errs), worst: Math.max(...errs), isNew: r.isNew })
+    },
+    [report],
+  )
+
   const again = useCallback(() => {
     reset()
     setResult(null)
     setBusy(false)
     setRound((n) => n + 1)
+    setDeal((n) => n + 1)
   }, [reset])
 
   // Switching mode starts a fresh bankroll; the inner cross-fade handles the swap.
@@ -517,12 +707,24 @@ export default function Casino() {
     if (busy) return
     setVariant(m)
     reset()
+    setDeal((n) => n + 1)
   }
 
   return (
     <Swap k={result ? 'done' : `play-${round}`}>
       {result ? (
-        result.kind === 'levels' ? (
+        result.kind === 'pinpoint' ? (
+          <Result
+            title="Casino, pinpoint"
+            isNew={result.isNew}
+            onAgain={again}
+            stats={[
+              { label: 'Average off', value: result.avg.toFixed(1) },
+              { label: 'Closest', value: result.best.toFixed(1) },
+              { label: 'Farthest', value: result.worst.toFixed(1) },
+            ]}
+          />
+        ) : result.kind === 'levels' ? (
           <Result
             title="Casino, levels"
             isNew={result.isNew}
@@ -538,36 +740,44 @@ export default function Casino() {
             isNew={result.isNew}
             onAgain={again}
             stats={[
-              { label: 'Peak balance', value: `${result.peak.toLocaleString()} coins` },
+              { label: 'Peak credits', value: result.peak.toLocaleString() },
               { label: 'Final', value: result.balance.toLocaleString() },
               { label: 'Spins', value: result.spins },
               { label: 'Biggest win', value: `+${result.biggest.toLocaleString()}` },
             ]}
           >
-            {result.balance <= 0 && <p className="mt-4 text-xs text-muted">Out of coins.</p>}
+            {result.balance <= 0 && <p className="mt-4 text-xs text-muted">Out of credits.</p>}
           </Result>
         )
       ) : (
         <div className="mx-auto max-w-[720px]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <Segmented label="Mode" options={MODES} value={mode} onChange={switchMode} />
-            {mode !== 'levels' && (
-              <div className="text-right">
-                <div className="text-xs text-muted">Balance</div>
+            {coinMode && (
+              <div key={deal} className="relative text-right">
+                <div className="text-xs text-muted">Credits</div>
                 <div className="num text-3xl text-accent">
-                  <Coins value={bank.balance} />
+                  <Coins value={bank.balance} start={0} />
                 </div>
+                <Deal amount={START} />
               </div>
             )}
           </div>
 
-          {mode !== 'levels' && (
+          {coinMode && (
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
               <div className="flex items-center gap-3">
                 <span className="text-muted">Bet</span>
                 <div className={`transition-opacity duration-200 ${busy ? 'pointer-events-none opacity-50' : ''}`}>
-                  <Segmented label="Bet" options={BETS} value={bet} onChange={setBet} />
+                  <Segmented label="Bet" options={betOptions} value={bet} onChange={setBet} />
                 </div>
+                {mode === 'slots' && (
+                  <Swap k={boostFor(stake).min}>
+                    <span className="num text-xs text-muted">
+                      Big wins ×{boostFor(stake).big} · {boostFor(stake).rtp}% return
+                    </span>
+                  </Swap>
+                )}
               </div>
               <Button variant="ghost" onClick={cashOut} disabled={busy || bank.spins === 0}>
                 Cash out
@@ -576,7 +786,7 @@ export default function Casino() {
           )}
 
           <div className="mt-6">
-            <AnimatePresence mode="wait" initial={false}>
+            <AnimatePresence mode="wait">
               <motion.div
                 key={mode}
                 initial={{ opacity: 0, y: 8 }}
@@ -587,12 +797,19 @@ export default function Casino() {
                 {mode === 'slots' && <Slots bet={stake} busy={busy} setBusy={setBusy} settle={settle} />}
                 {mode === 'roulette' && <Roulette bet={stake} busy={busy} setBusy={setBusy} settle={settle} />}
                 {mode === 'levels' && <Levels onFail={levelFail} />}
+                {mode === 'pinpoint' && <Pinpoint onDone={pinDone} />}
               </motion.div>
             </AnimatePresence>
           </div>
 
           <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-muted">
-            <Kbd>Space</Kbd> {mode === 'levels' ? 'to try.' : 'to spin.'} Play money only.
+            {mode === 'pinpoint' ? (
+              '10 rounds. Lower average wins.'
+            ) : (
+              <>
+                <Kbd>Space</Kbd> {mode === 'levels' ? 'to try.' : 'to spin.'} Play money only.
+              </>
+            )}
           </p>
         </div>
       )}
