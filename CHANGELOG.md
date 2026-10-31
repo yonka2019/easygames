@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.0.0] : 2026-10-31
+
+- First stable release.
+
 ## [v0.5.0] : 2026-10-31
 
 - Docker image (nginx serving the built site).
