@@ -159,7 +159,10 @@ export default function Typing() {
     const end = input.length >= letters.length
     const l = letters[end ? letters.length - 1 : input.length]
     if (!l) return
-    setCaret({ x: l.offsetLeft + (end ? l.offsetWidth : 0) - 1, y: l.offsetTop + l.offsetHeight * 0.12, h: l.offsetHeight * 0.8 })
+    // The word's enter animation (transform/filter, kept by fill-mode) makes Chrome use the word as offsetParent.
+    const ox = l.offsetParent === word ? word.offsetLeft : 0
+    const oy = l.offsetParent === word ? word.offsetTop : 0
+    setCaret({ x: ox + l.offsetLeft + (end ? l.offsetWidth : 0) - 1, y: oy + l.offsetTop + l.offsetHeight * 0.12, h: l.offsetHeight * 0.8 })
   }, [input, typed.length, words, fontsTick, round])
 
   // Typing anywhere focuses the test; Tab, Esc or Ctrl+R restarts (Ctrl+R no longer reloads the page here).

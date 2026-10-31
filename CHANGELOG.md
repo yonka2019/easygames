@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.0.1] : 2026-10-31
+
+- Type race: caret no longer jumps back to the line start after the first word.
+
 ## [v1.0.0] : 2026-10-31
 
 - First stable release.
