@@ -12,6 +12,15 @@ npm run dev      # http://localhost:25753 (also on LAN; ngrok hosts allowed)
 npm run build    # output: dist/
 ```
 
+## Docker
+
+```
+docker build -t easygames .
+docker run -p 8080:80 easygames   # http://localhost:8080
+```
+
+Pushing a `v*` tag builds the image → GitHub release + S3 (`.github/workflows/on-tag.yml`). Needs repo vars `SERVICE_NAME`, `S3_FOLDER` and secrets `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
+
 ## Config
 
 Copy `.env.example` to `.env`. `VITE_AUTHOR` = footer name (default `yonka`).

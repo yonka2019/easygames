@@ -7,6 +7,8 @@ Browser mini-games site (14 games). Pure client-side SPA, no backend, no tests. 
 - `server.allowedHosts` in `vite.config.js` allows ngrok domains (`.ngrok-free.app/.dev`, `.ngrok.app`, `.ngrok.io`); preview inherits it. Other hosts get Vite's 403 "Blocked request".
 - `npm run build` → `dist/`. Verify changes with a build: `npx vite build`.
 - `app.url` holds the local URL.
+- `Dockerfile`: node:22-alpine build → nginx:alpine serving `dist/` on port 80 (hash router, no nginx config needed).
+- `.github/workflows/on-tag.yml`: `v*` tag → Docker image tar → GitHub release + zip to S3 `y.packages/<S3_FOLDER>/`. Needs repo vars `SERVICE_NAME`, `S3_FOLDER`, secrets `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
 - Env (`.env.example`): `VITE_AUTHOR` = footer credit "by …" (default `yonka`). Restart dev after changing.
 
 ## Stack

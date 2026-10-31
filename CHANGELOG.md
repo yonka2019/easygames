@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.5.0] : 2026-10-31
+
+- Docker image (nginx serving the built site).
+- Tag push builds the image → GitHub release + S3 zip.
+
 ## [v0.4.0] : 2026-10-31
 
 - Site version shown in the footer.
