@@ -1,0 +1,6 @@
+# Rendered at start by the nginx entrypoint: ${PORT} comes from the env (default 8080).
+server {
+    listen ${PORT};
+    root /usr/share/nginx/html;
+    index index.html;
+}

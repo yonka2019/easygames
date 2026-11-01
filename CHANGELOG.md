@@ -1,5 +1,15 @@
 # Changelog
 
+## [v2.0.0] : 2026-11-01
+
+----------- ENV CHANGES -------------
+- `PORT` (new, Docker runtime): listen port. Default `8080`, must be ≥ 1024.
+---------------------------------------
+
+- BREAKING: container port 80 → 8080. Point Services/Routes at `8080`.
+- Docker image runs as non-root (OpenShift ready; fixes `client_temp` permission denied).
+- Listen port set by `PORT` env.
+
 ## [v1.0.1] : 2026-10-31
 
 - Type race: caret no longer jumps back to the line start after the first word.

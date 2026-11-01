@@ -16,8 +16,11 @@ npm run build    # output: dist/
 
 ```
 docker build -t easygames .
-docker run -p 8080:80 easygames   # http://localhost:8080
+docker run -p 8080:8080 easygames   # http://localhost:8080
+docker run -e PORT=9000 -p 9000:9000 easygames   # other port
 ```
+
+`PORT` = listen port (default `8080`, must be ≥ 1024). Runs as non-root (OpenShift ready).
 
 Pushing a `v*` tag builds the image → GitHub release + S3 (`.github/workflows/on-tag.yml`). Needs repo vars `SERVICE_NAME`, `S3_FOLDER` and secrets `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
 
