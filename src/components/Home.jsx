@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { ShuffleIcon, ArrowRightIcon } from '@phosphor-icons/react'
-import { GAMES } from '../games/registry'
+import { GAMES, GROUPS } from '../games/registry'
 import { getBest, hasScores, resetAll } from '../lib/store'
 import { gameHref } from '../lib/route'
 import { pick, shuffle } from '../lib/util'
@@ -11,7 +11,17 @@ import { HeroShowcase } from './HeroShowcase'
 const SPAN = {
   feature: 'sm:col-span-2 sm:row-span-2',
   wide: 'sm:col-span-2',
+  full: 'sm:col-span-2 lg:col-span-4',
 }
+
+// Bento items in registry order: a game, or a group box (all its games, placed where the first one is).
+const ITEMS = GAMES.reduce((list, g) => {
+  if (!g.group) list.push({ key: g.id, games: [g] })
+  else if (!list.some((it) => it.group === g.group)) {
+    list.push({ key: `group:${g.group}`, group: g.group, games: GAMES.filter((x) => x.group === g.group) })
+  }
+  return list
+}, [])
 
 const SAMPLE = 'there will be time to think about it later'
 
@@ -99,6 +109,28 @@ function Tile({ game, best, index, lit, wait }) {
   )
 }
 
+// Full-width box holding a group's tiles (Casino). Same enter animation as a tile.
+function GroupBox({ group, children, index, wait }) {
+  const { name, note, icon: Icon } = GROUPS[group]
+  return (
+    <motion.section
+      aria-label={name}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0, transition: { duration: 0.5, delay: wait + index * 0.035, ease: [0.16, 1, 0.3, 1] } }}
+      className="rounded-xl border border-line bg-surface-2/40 p-3 sm:col-span-2 md:p-4 lg:col-span-4"
+    >
+      <div className="flex items-center justify-between gap-3 px-1 pb-3 md:px-2">
+        <h3 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <Icon size={20} weight="duotone" className="text-accent" />
+          {name}
+        </h3>
+        <span className="text-sm text-muted">{note}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4">{children}</div>
+    </motion.section>
+  )
+}
+
 export function Home() {
   const [bests, setBests] = useState(() => Object.fromEntries(GAMES.map((g) => [g.id, getBest(g.id, g.variant)])))
 
@@ -166,9 +198,17 @@ export function Home() {
           <span className="num text-sm text-muted">{GAMES.length}</span>
         </div>
         <div className="grid grid-flow-dense grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {GAMES.map((g, i) => (
-            <Tile key={g.id} game={g} best={bests[g.id]} index={i} lit={lit.includes(g.id)} wait={intro ? 0.7 : 0} />
-          ))}
+          {ITEMS.map((it, i) => {
+            const tile = (g, n) => (
+              <Tile key={g.id} game={g} best={bests[g.id]} index={n} lit={lit.includes(g.id)} wait={intro ? 0.7 : 0} />
+            )
+            if (!it.group) return tile(it.games[0], i)
+            return (
+              <GroupBox key={it.key} group={it.group} index={i} wait={intro ? 0.7 : 0}>
+                {it.games.map((g, n) => tile(g, i + n))}
+              </GroupBox>
+            )
+          })}
         </div>
       </section>
 

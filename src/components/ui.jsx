@@ -47,7 +47,9 @@ export function Swap({ k, children, className = '', fit = false }) {
         key={k}
         className={className}
         initial={{ opacity: 0, y: 6, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        // pointerEvents is reset here: when `k` returns to a view that is still leaving, Motion revives that
+        // element, and without the reset it kept the exit's `none` (buttons looked fine but took no clicks).
+        animate={{ opacity: 1, y: 0, scale: 1, pointerEvents: 'inherit' }}
         exit={{ opacity: 0, y: -6, scale: 0.98, pointerEvents: 'none' }}
         transition={{ duration: 0.18, ease: EASE }}
       >

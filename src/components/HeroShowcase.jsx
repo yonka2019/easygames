@@ -7,13 +7,15 @@ import { DEMOS } from './demos'
 import { EASE } from './ui'
 
 const EVERY = 6000
+// Games with a demo (Board: Chess only; Cards: Blackjack only; Casino: Slots only).
+const SHOWN = GAMES.filter((g) => DEMOS[g.id])
 
 // Home hero: a live mini demo per game. Auto-rotates (paused on hover/focus, off under reduced motion); tabs pick one.
 export function HeroShowcase() {
   const reduce = useReducedMotion()
   const [i, setI] = useState(0)
   const [paused, setPaused] = useState(false)
-  const game = GAMES[i]
+  const game = SHOWN[i]
   const Demo = DEMOS[game.id]
   const Icon = game.icon
   const auto = !reduce && !paused
@@ -26,7 +28,7 @@ export function HeroShowcase() {
     const c = animate(fill, 1, {
       duration: (EVERY / 1000) * (1 - fill.get()),
       ease: 'linear',
-      onComplete: () => setI((n) => (n + 1) % GAMES.length),
+      onComplete: () => setI((n) => (n + 1) % SHOWN.length),
     })
     return () => c.stop()
   }, [auto, i, fill])
@@ -85,15 +87,15 @@ export function HeroShowcase() {
         aria-label="Preview a game"
         className="mt-4 flex gap-1.5"
         onKeyDown={(e) => {
-          const n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: GAMES.length - 1 }[e.key]
+          const n = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: SHOWN.length - 1 }[e.key]
           if (n === undefined) return
           e.preventDefault()
-          const to = (n + GAMES.length) % GAMES.length
+          const to = (n + SHOWN.length) % SHOWN.length
           setI(to)
           e.currentTarget.children[to]?.focus()
         }}
       >
-        {GAMES.map((g, n) => {
+        {SHOWN.map((g, n) => {
           const on = n === i
           return (
             <button

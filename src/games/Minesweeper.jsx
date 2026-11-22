@@ -72,6 +72,10 @@ export default function Minesweeper() {
   const reduce = useReducedMotion()
   const t0 = useRef(0)
   const press = useRef(null)
+  const wrap = useRef(null)
+  const refocus = useRef(false)
+  // Keyboard cursor: the one cell in the Tab order (roving tabindex).
+  const [cur, setCur] = useState(0)
 
   const reset = useCallback(() => {
     setBoard(empty(LEVELS[level]))
@@ -80,14 +84,49 @@ export default function Minesweeper() {
     setIsNew(false)
     setBoom(-1)
     setOrigin(-1)
+    setCur((c) => Math.min(c, LEVELS[level].rows * LEVELS[level].cols - 1))
   }, [level])
 
   useEffect(reset, [reset])
 
   // "New board" also cross-fades the board (round is its key), so revealed cells don't blink out.
   const again = () => {
+    refocus.current = wrap.current?.contains(document.activeElement)
     setRound((r) => r + 1)
     reset()
+  }
+
+  // The board remounts on a new round, so keep keyboard focus on the cursor cell.
+  useEffect(() => {
+    if (!refocus.current) return
+    refocus.current = false
+    wrap.current?.querySelector(`[data-board="${level}:${round}"] [tabindex="0"]`)?.focus()
+  }, [level, round])
+
+  // Arrows/Home/End move the cursor, F flags. Enter/Space open (native button click).
+  const onKey = (e) => {
+    const i = cur
+    const { rows, cols } = cfg
+    const r = Math.floor(i / cols)
+    const c = i % cols
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key
+    if (k === 'f') {
+      e.preventDefault()
+      flag(i)
+      return
+    }
+    const n = {
+      ArrowUp: r > 0 ? i - cols : i,
+      ArrowDown: r < rows - 1 ? i + cols : i,
+      ArrowLeft: c > 0 ? i - 1 : i,
+      ArrowRight: c < cols - 1 ? i + 1 : i,
+      Home: e.ctrlKey ? 0 : r * cols,
+      End: e.ctrlKey ? rows * cols - 1 : r * cols + cols - 1,
+    }[k]
+    if (n === undefined) return
+    e.preventDefault()
+    setCur(n)
+    e.currentTarget.querySelector(`[data-i="${n}"]`)?.focus()
   }
 
   useEffect(() => {
@@ -178,14 +217,18 @@ export default function Minesweeper() {
           <ArrowClockwiseIcon size={16} weight="bold" />
           New board
         </Button>
-        <span className="text-sm text-muted">Right-click or long-press to flag.</span>
+        <span className="text-sm text-muted">Flag: right-click, long-press or F. Arrows move.</span>
       </div>
 
-      <div className="relative mt-6 overflow-x-auto pb-2">
+      <div ref={wrap} className="relative mt-6 overflow-x-auto pb-2">
         {/* New board/difficulty: the old board fades out on top, click-through; the new one is live at once. */}
         <AnimatePresence mode="popLayout">
           <motion.div
             key={`${level}:${round}`}
+            data-board={`${level}:${round}`}
+            role="group"
+            aria-label="Board"
+            onKeyDown={onKey}
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98, pointerEvents: 'none' }}
@@ -202,6 +245,9 @@ export default function Minesweeper() {
                 <button
                   key={i}
                   type="button"
+                  data-i={i}
+                  tabIndex={i === cur ? 0 : -1}
+                  onFocus={() => setCur(i)}
                   style={c.open ? { '--d': `${d}ms` } : undefined}
                   aria-label={c.open ? (c.mine ? 'Mine' : `${c.n}`) : c.flag ? 'Flagged' : 'Hidden'}
                   onClick={() => {

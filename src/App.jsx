@@ -8,7 +8,8 @@ import { useRoute } from './lib/route'
 // Footer version; package.json is the single source (bumped on every release).
 import { version } from '../package.json'
 
-const AUTHOR = import.meta.env.VITE_AUTHOR || 'yonka'
+// Runtime env (Docker, /config.js) → build-time .env → default.
+const AUTHOR = window.__ENV?.author || import.meta.env.VITE_AUTHOR || 'yonka'
 
 // Sits inside GameFrame, so only the game area pulses while its chunk loads.
 function Loading() {

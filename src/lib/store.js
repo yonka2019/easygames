@@ -5,10 +5,23 @@ const KEY = 'easygame:v1'
 function read() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY))
-    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
+    return v && typeof v === 'object' && !Array.isArray(v) ? migrate(v) : {}
   } catch {
     return {}
   }
+}
+
+// v2.2: Casino modes became standalone games. "casino:<mode>" scores move to "<mode>" (once).
+function migrate(data) {
+  const old = Object.keys(data).filter((k) => k.startsWith('casino:'))
+  if (!old.length) return data
+  for (const k of old) {
+    const id = k.slice('casino:'.length)
+    if (!(id in data)) data[id] = data[k]
+    delete data[k]
+  }
+  write(data)
+  return data
 }
 
 // Kept by resetAll: play state, not a score (today's Word guess stays done).

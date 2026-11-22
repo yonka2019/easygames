@@ -1,5 +1,30 @@
 # Changelog
 
+## [v2.4.0] : 2026-11-22
+
+- New "Board" box, you vs the PC (Easy / Normal / Hard): Chess, Checkers, Four in a row. Score = fewest moves to win, per level.
+- New "Cards" box: Blackjack (play money), Higher or lower, Crazy Eights and Yaniv vs the PC.
+- Home: live demos for Chess and Blackjack.
+- Fix: a button could stop taking clicks after a quick view change (seen under reduced motion).
+
+## [v2.3.0] : 2026-11-02
+
+- Minesweeper: keyboard play. Arrows move, Enter/Space open, F flags, Home/End jump.
+
+## [v2.2.0] : 2026-11-02
+
+- Casino split into 4 standalone games: Slots, Roulette, Levels, Pinpoint (own page, own best).
+- Home: the 4 games sit in a "Casino" group box. Claude run tile is full width.
+- Old Casino scores carry over; old `#/g/casino` links open Slots.
+
+## [v2.1.0] : 2026-11-02
+
+----------- ENV CHANGES -------------
+- `VITE_AUTHOR` (changed): Docker image now reads it at container start (`docker run -e VITE_AUTHOR=...`). Build-time `.env` still works.
+---------------------------------------
+
+- Runtime config: Docker env is applied at container start via `/config.js` (no rebuild).
+
 ## [v2.0.0] : 2026-11-01
 
 ----------- ENV CHANGES -------------

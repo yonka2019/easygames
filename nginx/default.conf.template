@@ -3,4 +3,10 @@ server {
     listen ${PORT};
     root /usr/share/nginx/html;
     index index.html;
+
+    # Runtime config written at start by /docker-entrypoint.d/40-config.sh.
+    location = /config.js {
+        alias /tmp/config.js;
+        add_header Cache-Control "no-store";
+    }
 }

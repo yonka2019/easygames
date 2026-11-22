@@ -5,6 +5,8 @@ import { cssVar } from '../lib/util'
 import { CACTI, CLAUDE_ORANGE, CPX, DINO_X, GRAVITY, GROUND, H, JUMP, RUN, STAND, STAND_H, STAND_W, drawCactus, drawSprite } from '../games/claudeArt'
 import { EASE, Swap } from './ui'
 import { TypingDemo } from './TypingDemo'
+import { PlayingCard } from '../games/cards'
+import { ChessPiece, SQ_DARK, SQ_LIGHT } from '../games/chessPieces'
 
 // Looping mini previews for the home hero, one per game. All decorative (aria-hidden by the parent).
 // Each runs off a tick counter that stays at 0 under reduced motion, so every demo has a static first frame.
@@ -466,6 +468,97 @@ function CasinoDemo() {
   )
 }
 
+// Chess: a four-move checkmate (queen and bishop on f7), then the loop restarts.
+const CH_START = 'rnbqkbnrpppppppp' + ' '.repeat(32) + 'PPPPPPPPRNBQKBNR'
+const CH_TYPE = { p: 1, n: 2, b: 3, r: 4, q: 5, k: 6 }
+const CH_MOVES = [[52, 36], [12, 28], [61, 34], [1, 18], [59, 31], [6, 21], [31, 13]]
+
+function ChessDemo() {
+  const tick = useTick(750)
+  const t = tick % 12
+  const done = Math.min(t, CH_MOVES.length)
+  const at = [...CH_START].map((ch, sq) => (ch === ' ' ? null : { id: sq, ch }))
+  for (const [from, to] of CH_MOVES.slice(0, done)) {
+    at[to] = at[from]
+    at[from] = null
+  }
+  const last = done ? CH_MOVES[done - 1] : []
+  const mate = done === CH_MOVES.length
+  return (
+    <div className="flex h-full flex-col">
+      <Top left={mate ? 'checkmate' : `move ${Math.floor(done / 2) + 1}`} right="chess" />
+      <div className="grid flex-1 place-items-center">
+        <Swap k={Math.floor(tick / 12)}>
+          <div className="relative grid w-[208px] grid-cols-8 overflow-hidden rounded-lg border border-line md:w-[232px]">
+            {at.map((_, i) => (
+              <span
+                key={i}
+                className={`aspect-square transition-colors duration-300 ${
+                  last.includes(i) ? 'bg-accent/50' : ((i >> 3) + (i & 7)) % 2 ? SQ_DARK : SQ_LIGHT
+                }`}
+              />
+            ))}
+            {at.map(
+              (pc, sq) =>
+                pc && (
+                  <span
+                    key={pc.id}
+                    className="absolute left-0 top-0 h-[12.5%] w-[12.5%] transition-[translate] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                    style={{ translate: `${(sq & 7) * 100}% ${(sq >> 3) * 100}%` }}
+                  >
+                    <ChessPiece type={CH_TYPE[pc.ch.toLowerCase()]} color={pc.ch === pc.ch.toLowerCase() ? 1 : 0} className="size-full" />
+                  </span>
+                ),
+            )}
+          </div>
+        </Swap>
+      </div>
+    </div>
+  )
+}
+
+// Blackjack: 16 against a king, hit a five for 21, dealer flips to 18.
+const BJ_YOU = [{ id: 's10', s: 's', r: 10 }, { id: 'h6', s: 'h', r: 6 }, { id: 'd5', s: 'd', r: 5 }]
+const BJ_DEALER = [{ id: 'c13', s: 'c', r: 13 }, { id: 'h8', s: 'h', r: 8 }]
+
+function BlackjackDemo() {
+  const tick = useTick(450)
+  const t = tick % 14
+  const hit = t >= 4
+  const open = t >= 7
+  const won = t >= 9
+  const rows = [
+    { label: 'Dealer', total: open ? 18 : 10, cards: BJ_DEALER, up: (i) => i === 0 || open },
+    { label: 'You', total: hit ? 21 : 16, cards: BJ_YOU.slice(0, hit ? 3 : 2), up: () => true },
+  ]
+  return (
+    <div className="flex h-full flex-col">
+      <Top left={`${won ? 210 : 200} credits`} right="blackjack" />
+      <div className="grid flex-1 place-items-center">
+        <Swap k={Math.floor(tick / 14)}>
+          <div className="grid gap-3 sm:gap-4">
+            {rows.map((row) => (
+              <div key={row.label} className="flex items-center gap-4">
+                <div className="w-14">
+                  <div className="text-xs text-muted">{row.label}</div>
+                  <div className={`num text-2xl transition-colors duration-300 ${won && row.label === 'You' ? 'text-accent' : 'text-ink'}`}>{row.total}</div>
+                </div>
+                <div className="flex w-[208px] gap-2">
+                  {row.cards.map((c, i) => (
+                    <motion.div key={c.id} initial={i > 1 ? { opacity: 0, x: 20, y: -14 } : false} animate={{ opacity: 1, x: 0, y: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+                      <PlayingCard card={c} up={row.up(i)} />
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Swap>
+      </div>
+    </div>
+  )
+}
+
 // Claude run: a small autopilot of the real game (same sprites and jump physics); jumps when a cactus gets close.
 const PREVIEW_SPEED = 300
 const VIEW = 380 // narrower slice of the world than the game, so sprites read bigger in the card
@@ -593,6 +686,8 @@ export const DEMOS = {
   chimp: ChimpDemo,
   pairs: PairsDemo,
   2048: G2048Demo,
-  casino: CasinoDemo,
+  chess: ChessDemo,
+  blackjack: BlackjackDemo,
+  slots: CasinoDemo,
   dino: DinoDemo,
 }

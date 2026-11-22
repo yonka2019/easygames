@@ -13,6 +13,19 @@ import {
   CardsIcon,
   GridFourIcon,
   PokerChipIcon,
+  CoinsIcon,
+  SpinnerBallIcon,
+  LadderSimpleIcon,
+  MapPinIcon,
+  CardsThreeIcon,
+  SpadeIcon,
+  ArrowsDownUpIcon,
+  NumberEightIcon,
+  HandPalmIcon,
+  StrategyIcon,
+  HorseIcon,
+  CheckerboardIcon,
+  DotsNineIcon,
 } from '@phosphor-icons/react'
 import { fmtMs, fmtTime } from '../lib/util'
 import { ClaudeFigure } from '../components/ClaudeFigure'
@@ -21,7 +34,20 @@ import Typing from './Typing.jsx' // eager: main game, no loading step on refres
 // lazy() plus preload(), so home tiles can fetch the chunk on hover before the click.
 const lazyGame = (load) => Object.assign(lazy(load), { preload: load })
 
-// Order + size drive the home bento (4 cols on desktop). "feature" = 2x2, "wide" = 2x1.
+// Casino games (and Blackjack, which uses the same bank) share one chunk; each page renders it in a fixed mode.
+const casino = (name) => lazyGame(() => import('./Casino.jsx').then((m) => ({ default: m[name] })))
+const credits = (v) => `${v.toLocaleString()} credits`
+const inRow = (v) => `${v} in a row`
+const moves = (v) => `${v} move${v === 1 ? '' : 's'}`
+
+// Home group boxes: games with `group` render together in one full-width box.
+export const GROUPS = {
+  board: { name: 'Board', note: 'You vs PC', icon: StrategyIcon },
+  cards: { name: 'Cards', note: 'Deal me in', icon: CardsThreeIcon },
+  casino: { name: 'Casino', note: 'Play money', icon: PokerChipIcon },
+}
+
+// Order + size drive the home bento (4 cols on desktop). "feature" = 2x2, "wide" = 2x1, "full" = whole row.
 export const GAMES = [
   {
     id: 'typing', name: 'Type race', blurb: 'Type the words. Measure your WPM.',
@@ -96,18 +122,79 @@ export const GAMES = [
     Component: lazyGame(() => import('./G2048.jsx')),
   },
   {
-    id: 'casino', name: 'Casino', blurb: 'Slots, roulette, risk ladder, pinpoint. Play money.',
-    cat: 'Luck', icon: PokerChipIcon, size: 'wide', tone: 'dots',
-    better: (mode) => (mode === 'pinpoint' ? 'low' : 'high'), variant: 'slots', vlabel: (v) => v[0].toUpperCase() + v.slice(1),
-    fmt: (v, mode) => (mode === 'levels' ? `level ${v}` : mode === 'pinpoint' ? `${v} off` : `${v.toLocaleString()} credits`),
-    Component: lazyGame(() => import('./Casino.jsx')),
+    id: 'chess', name: 'Chess', blurb: 'Checkmate the PC in the fewest moves.', group: 'board',
+    cat: 'Classic', icon: HorseIcon, size: 'wide', tone: 'lines',
+    better: 'low', variant: 'normal', fmt: moves,
+    Component: lazyGame(() => import('./Chess.jsx')),
+  },
+  {
+    id: 'checkers', name: 'Checkers', blurb: 'Jump every PC piece.', group: 'board',
+    cat: 'Classic', icon: CheckerboardIcon, tone: 'plain',
+    better: 'low', variant: 'normal', fmt: moves,
+    Component: lazyGame(() => import('./Checkers.jsx')),
+  },
+  {
+    id: 'four', name: 'Four in a row', blurb: 'Line up four discs first.', group: 'board',
+    cat: 'Classic', icon: DotsNineIcon, tone: 'dots',
+    better: 'low', variant: 'normal', fmt: moves,
+    Component: lazyGame(() => import('./Four.jsx')),
+  },
+  {
+    id: 'blackjack', name: 'Blackjack', blurb: 'Beat the dealer to 21.', group: 'cards',
+    cat: 'Luck', icon: SpadeIcon, tone: 'dots',
+    better: 'high', fmt: credits,
+    Component: casino('BlackjackGame'),
+  },
+  {
+    id: 'hilo', name: 'Higher or lower', blurb: 'Guess the next card.', group: 'cards',
+    cat: 'Luck', icon: ArrowsDownUpIcon, tone: 'lines',
+    better: 'high', fmt: (v) => `${v} streak`,
+    Component: lazyGame(() => import('./HiLo.jsx')),
+  },
+  {
+    id: 'eights', name: 'Crazy Eights', blurb: 'Empty your hand before the PC.', group: 'cards',
+    cat: 'Classic', icon: NumberEightIcon, tone: 'plain',
+    better: 'high', fmt: inRow,
+    Component: lazyGame(() => import('./CrazyEights.jsx')),
+  },
+  {
+    id: 'yaniv', name: 'Yaniv', blurb: 'Get to 7 or less, then call it.', group: 'cards',
+    cat: 'Classic', icon: HandPalmIcon, tone: 'dots',
+    better: 'high', fmt: inRow,
+    Component: lazyGame(() => import('./Yaniv.jsx')),
+  },
+  {
+    id: 'slots', name: 'Slots', blurb: 'Spin three reels. Match to win.', group: 'casino',
+    cat: 'Luck', icon: CoinsIcon, tone: 'dots',
+    better: 'high', fmt: credits,
+    Component: casino('SlotsGame'),
+  },
+  {
+    id: 'roulette', name: 'Roulette', blurb: 'Spin the European wheel.', group: 'casino',
+    cat: 'Luck', icon: SpinnerBallIcon, tone: 'lines',
+    better: 'high', fmt: credits,
+    Component: casino('RouletteGame'),
+  },
+  {
+    id: 'levels', name: 'Levels', blurb: 'Climb high. One miss ends it.', group: 'casino',
+    cat: 'Luck', icon: LadderSimpleIcon, tone: 'plain',
+    better: 'high', fmt: (v) => `level ${v}`,
+    Component: casino('LevelsGame'),
+  },
+  {
+    id: 'pinpoint', name: 'Pinpoint', blurb: 'Find the number on a blank line.', group: 'casino',
+    cat: 'Luck', icon: MapPinIcon, tone: 'dots',
+    better: 'low', fmt: (v) => `${v} off`,
+    Component: casino('PinpointGame'),
   },
   {
     id: 'dino', name: 'Claude run', blurb: 'Jump the cacti, dodge the bugs.',
-    cat: 'Reflex', icon: ClaudeFigure, size: 'wide', tone: 'lines',
+    cat: 'Reflex', icon: ClaudeFigure, size: 'full', tone: 'lines',
     better: 'high', fmt: (v) => `${v.toLocaleString()} pts`,
     Component: lazyGame(() => import('./Dino.jsx')),
   },
 ]
 
-export const byId = (id) => GAMES.find((g) => g.id === id)
+// Old ids still open a game (Casino was one game with modes before v2.2).
+const ALIAS = { casino: 'slots' }
+export const byId = (id) => GAMES.find((g) => g.id === (ALIAS[id] ?? id))

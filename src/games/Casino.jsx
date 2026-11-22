@@ -12,17 +12,13 @@ import {
 } from '@phosphor-icons/react'
 import { useGame } from '../components/GameFrame'
 import { Button, EASE, Kbd, Result, Segmented, Swap } from '../components/ui'
+import Blackjack from './Blackjack.jsx'
 
 // Play money only. Slots return 94.6% at bet 1 up to 99% at bet 25 (bigger bets make rare symbols likelier);
-// European roulette 97.3%. The house still wins over time.
+// European roulette 97.3%; blackjack (Blackjack.jsx) about 99% with good play. The house still wins over time.
 const START = 200
 const BETS = ['1', '5', '10', '25']
-const MODES = [
-  { value: 'slots', label: 'Slots' },
-  { value: 'roulette', label: 'Roulette' },
-  { value: 'levels', label: 'Levels' },
-  { value: 'pinpoint', label: 'Pinpoint' },
-]
+const TITLE = { slots: 'Slots', roulette: 'Roulette', blackjack: 'Blackjack', levels: 'Levels', pinpoint: 'Pinpoint' }
 
 const weighted = (items) => {
   const total = items.reduce((n, s) => n + s.w, 0)
@@ -53,7 +49,7 @@ function Coins({ value, start }) {
   return n.toLocaleString()
 }
 
-// Shared bankroll for slots and roulette. The run ends on cash out or when broke; the score is the peak balance.
+// Shared bankroll for slots, roulette and blackjack. The run ends on cash out or when broke; the score is the peak balance.
 function useBank() {
   const [bank, setBank] = useState({ balance: START, peak: START, spins: 0, biggest: 0 })
   const settle = (bet, win) =>
@@ -647,9 +643,9 @@ function useSpace(fn, active) {
   }, [fn, active])
 }
 
-export default function Casino() {
-  const { report, setVariant, variant } = useGame()
-  const mode = variant || 'slots'
+// One component, five standalone games (registry: slots, roulette, blackjack, levels, pinpoint). Mode is fixed per page.
+export default function Casino({ mode = 'slots' }) {
+  const { report } = useGame()
   const { bank, settle, reset } = useBank()
   const [bet, setBet] = useState('5')
   const [busy, setBusy] = useState(false)
@@ -657,7 +653,7 @@ export default function Casino() {
   const [round, setRound] = useState(0)
   const [deal, setDeal] = useState(0) // bumps on every fresh bankroll, replaying the hand-over animation
 
-  const coinMode = mode === 'slots' || mode === 'roulette'
+  const coinMode = mode === 'slots' || mode === 'roulette' || mode === 'blackjack'
   const stake = Math.min(Number(bet), bank.balance)
   const broke = bank.balance <= 0
   const betOptions = BETS.map((b) => ({ value: b, label: b, disabled: Number(b) > bank.balance }))
@@ -704,20 +700,12 @@ export default function Casino() {
     setDeal((n) => n + 1)
   }, [reset])
 
-  // Switching mode starts a fresh bankroll; the inner cross-fade handles the swap.
-  const switchMode = (m) => {
-    if (busy) return
-    setVariant(m)
-    reset()
-    setDeal((n) => n + 1)
-  }
-
   return (
     <Swap fit k={result ? 'done' : `play-${round}`}>
       {result ? (
         result.kind === 'pinpoint' ? (
           <Result
-            title="Casino, pinpoint"
+            title={TITLE.pinpoint}
             isNew={result.isNew}
             onAgain={again}
             stats={[
@@ -728,7 +716,7 @@ export default function Casino() {
           />
         ) : result.kind === 'levels' ? (
           <Result
-            title="Casino, levels"
+            title={TITLE.levels}
             isNew={result.isNew}
             onAgain={again}
             stats={[
@@ -738,13 +726,13 @@ export default function Casino() {
           />
         ) : (
           <Result
-            title={`Casino, ${mode}`}
+            title={TITLE[mode]}
             isNew={result.isNew}
             onAgain={again}
             stats={[
               { label: 'Peak credits', value: result.peak.toLocaleString() },
               { label: 'Final', value: result.balance.toLocaleString() },
-              { label: 'Spins', value: result.spins },
+              { label: mode === 'blackjack' ? 'Hands' : 'Spins', value: result.spins },
               { label: 'Biggest win', value: `+${result.biggest.toLocaleString()}` },
             ]}
           >
@@ -753,9 +741,8 @@ export default function Casino() {
         )
       ) : (
         <div className="mx-auto max-w-[720px]">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Segmented label="Mode" options={MODES} value={mode} onChange={switchMode} />
-            {coinMode && (
+          {coinMode && (
+            <div className="flex justify-end">
               <div key={deal} className="relative text-right">
                 <div className="text-xs text-muted">Credits</div>
                 <div className="num text-3xl text-accent">
@@ -763,8 +750,8 @@ export default function Casino() {
                 </div>
                 <Deal amount={START} />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {coinMode && (
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -787,7 +774,7 @@ export default function Casino() {
             </div>
           )}
 
-          <div className="mt-6">
+          <div className={coinMode ? 'mt-6' : ''}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={mode}
@@ -798,6 +785,7 @@ export default function Casino() {
               >
                 {mode === 'slots' && <Slots bet={stake} busy={busy} setBusy={setBusy} settle={settle} />}
                 {mode === 'roulette' && <Roulette bet={stake} busy={busy} setBusy={setBusy} settle={settle} />}
+                {mode === 'blackjack' && <Blackjack bet={stake} balance={bank.balance} busy={busy} setBusy={setBusy} settle={settle} />}
                 {mode === 'levels' && <Levels onFail={levelFail} />}
                 {mode === 'pinpoint' && <Pinpoint onDone={pinDone} />}
               </motion.div>
@@ -807,6 +795,10 @@ export default function Casino() {
           <p className="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm text-muted">
             {mode === 'pinpoint' ? (
               '10 rounds. Lower average wins.'
+            ) : mode === 'blackjack' ? (
+              <>
+                <Kbd>Space</Kbd> deal · <Kbd>H</Kbd> hit · <Kbd>S</Kbd> stand · <Kbd>D</Kbd> double. Play money only.
+              </>
             ) : (
               <>
                 <Kbd>Space</Kbd> {mode === 'levels' ? 'to try.' : 'to spin.'} Play money only.
@@ -818,3 +810,9 @@ export default function Casino() {
     </Swap>
   )
 }
+
+export const SlotsGame = () => <Casino mode="slots" />
+export const RouletteGame = () => <Casino mode="roulette" />
+export const BlackjackGame = () => <Casino mode="blackjack" />
+export const LevelsGame = () => <Casino mode="levels" />
+export const PinpointGame = () => <Casino mode="pinpoint" />
