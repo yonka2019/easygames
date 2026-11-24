@@ -92,5 +92,5 @@ Typing is imported eagerly; all others use `lazyGame()` (= `lazy` + `.preload()`
 - Claude run touch: swipe down cancels the tap's rising jump, then ducks.
 - Roulette red = `color-mix(danger 72%, black)` so white pocket numbers pass contrast.
 - Editing several files at once while dev runs can leave Vite serving a half-saved module; `touch` the files to force a re-transform.
-- `.gitignore`: `node_modules`, `dist`, `.playwright-mcp`, `app.url`, `.claude`.
+- `.gitignore`: `node_modules`, `dist`, `.playwright-mcp`, `app.url`. `.claude/` is tracked (project commands).
 - UI text must stay very short.

@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2.4.1] : 2026-11-24
+
+- Repo: `.claude/` is tracked now (project command `sync-from-ext-vp`).
+
 ## [v2.4.0] : 2026-11-22
 
 - New "Board" box, you vs the PC (Easy / Normal / Hard): Chess, Checkers, Four in a row. Score = fewest moves to win, per level.
