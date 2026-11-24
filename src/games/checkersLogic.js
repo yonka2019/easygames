@@ -1,7 +1,15 @@
-// Checkers (English rules): pure rules + PC search (no React; also runs in the board worker and in plain Node).
+// Checkers: pure rules + PC search (no React; also runs in the board worker and in plain Node).
 // Board = 64 cells, index = row * 8 + col, row 0 is the PC's back row. Dark squares only.
 // 1 = player man (moves up), 2 = player king, -1 = PC man (moves down), -2 = PC king.
-// Jumps are forced, a multi-jump must be finished, kings step one square, a man that is crowned stops.
+// A man that is crowned mid-jump stops. Rule switches (`rules`), all off by default:
+//   force  = jumps are forced and a multi-jump must be finished (English rules). Off: jumping is
+//            optional and a multi-jump may stop after any hop (every hop is its own move).
+//   flying = kings slide any distance and jump from afar (land on any empty square beyond).
+//   back   = men may also jump backwards.
+//   most   = with force: only the chains that take the most pieces.
+
+export const DEFAULT_RULES = { force: false, flying: false, back: false, most: false }
+export const ENGLISH = { ...DEFAULT_RULES, force: true }
 
 const DIAG = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
 const inside = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8
@@ -18,45 +26,64 @@ export function checkersNew() {
   return b
 }
 
-const dirsOf = (p) => (p === 2 || p === -2 ? DIAG : p === 1 ? DIAG.slice(0, 2) : DIAG.slice(2))
+const isKing = (p) => p === 2 || p === -2
+const forward = (p) => (p > 0 ? DIAG.slice(0, 2) : DIAG.slice(2))
 const crowns = (p, row) => (p === 1 && row === 0) || (p === -1 && row === 7)
 
-function jumpsFrom(b, from, sq, p, path, caps, out) {
-  const r = sq >> 3
-  const c = sq & 7
+function jumpsFrom(b, from, sq, p, path, caps, out, rules) {
+  const fly = isKing(p) && rules.flying
+  const free = (i) => b[i] === 0 || i === from // the moving piece has left its square
   let found = false
-  for (const [dr, dc] of dirsOf(p)) {
-    const r2 = r + dr * 2
-    const c2 = c + dc * 2
-    if (!inside(r2, c2)) continue
-    const mid = (r + dr) * 8 + c + dc
-    const land = r2 * 8 + c2
+  for (const [dr, dc] of isKing(p) || rules.back ? DIAG : forward(p)) {
+    let r = (sq >> 3) + dr
+    let c = (sq & 7) + dc
+    if (fly) {
+      while (inside(r, c) && free(r * 8 + c)) {
+        r += dr
+        c += dc
+      }
+    }
+    if (!inside(r, c)) continue
+    const mid = r * 8 + c
     if (b[mid] * p >= 0 || caps.includes(mid)) continue // needs an enemy piece not taken yet
-    if (b[land] !== 0 && land !== from) continue
-    found = true
-    const next = { path: [...path, land], caps: [...caps, mid] }
-    if (crowns(p, r2)) out.push({ from, to: land, ...next })
-    else jumpsFrom(b, from, land, p, next.path, next.caps, out)
+    for (let r2 = r + dr, c2 = c + dc; inside(r2, c2) && free(r2 * 8 + c2); r2 += dr, c2 += dc) {
+      const land = r2 * 8 + c2
+      const next = { from, to: land, path: [...path, land], caps: [...caps, mid] }
+      found = true
+      if (!rules.force) out.push(next)
+      if (crowns(p, r2)) {
+        if (rules.force) out.push(next)
+      } else jumpsFrom(b, from, land, p, next.path, next.caps, out, rules)
+      if (!fly) break
+    }
   }
-  if (!found && caps.length) out.push({ from, to: sq, path, caps })
+  if (rules.force && !found && caps.length) out.push({ from, to: sq, path, caps })
 }
 
 // Legal moves for `side` (1 player, -1 PC): { from, to, path: squares landed on, caps: squares taken }.
-export function checkersMoves(b, side) {
-  const jumps = []
-  for (let sq = 0; sq < 64; sq++) if (b[sq] * side > 0) jumpsFrom(b, sq, sq, b[sq], [], [], jumps)
-  if (jumps.length) return jumps
+export function checkersMoves(b, side, rules = DEFAULT_RULES) {
+  let jumps = []
+  for (let sq = 0; sq < 64; sq++) if (b[sq] * side > 0) jumpsFrom(b, sq, sq, b[sq], [], [], jumps, rules)
+  if (rules.force && jumps.length) {
+    if (rules.most) {
+      const top = Math.max(...jumps.map((m) => m.caps.length))
+      jumps = jumps.filter((m) => m.caps.length === top)
+    }
+    return jumps
+  }
   const steps = []
   for (let sq = 0; sq < 64; sq++) {
     const p = b[sq]
     if (p * side <= 0) continue
-    for (const [dr, dc] of dirsOf(p)) {
-      const r = (sq >> 3) + dr
-      const c = (sq & 7) + dc
-      if (inside(r, c) && !b[r * 8 + c]) steps.push({ from: sq, to: r * 8 + c, path: [r * 8 + c], caps: [] })
+    const fly = isKing(p) && rules.flying
+    for (const [dr, dc] of isKing(p) ? DIAG : forward(p)) {
+      for (let r = (sq >> 3) + dr, c = (sq & 7) + dc; inside(r, c) && !b[r * 8 + c]; r += dr, c += dc) {
+        steps.push({ from: sq, to: r * 8 + c, path: [r * 8 + c], caps: [] })
+        if (!fly) break
+      }
     }
   }
-  return steps
+  return jumps.length ? [...jumps, ...steps] : steps // jumps first: better pruning
 }
 
 export function checkersApply(b, m) {
@@ -92,16 +119,26 @@ function evaluate(b, side) {
   return score
 }
 
-function search(b, side, depth, alpha, beta, ply, clock) {
+function search(b, side, depth, alpha, beta, ply, clock, rules) {
   if (clock.end && ++clock.nodes % 1024 === 0 && Date.now() > clock.end) clock.out = true
   if (clock.out) return 0
-  const moves = checkersMoves(b, side)
+  const moves = checkersMoves(b, side, rules)
   if (!moves.length) return -WIN + ply
-  // Out of depth: stop only on a quiet position (a pending jump is always played out).
-  if (depth <= 0 && (!moves[0].caps.length || ply > 40)) return evaluate(b, side)
+  let list = moves
   let best = -Infinity
-  for (const m of moves) {
-    const score = -search(checkersApply(b, m), -side, depth - 1, -beta, -alpha, ply + 1, clock)
+  // Out of depth: stop on a quiet position. Forced jumps are always played out; optional ones are
+  // searched against the score of not jumping (stand pat).
+  if (depth <= 0) {
+    if (!moves[0].caps.length || ply > 40) return evaluate(b, side)
+    if (!rules.force) {
+      best = evaluate(b, side)
+      if (best >= beta) return best
+      if (best > alpha) alpha = best
+      list = moves.filter((m) => m.caps.length)
+    }
+  }
+  for (const m of list) {
+    const score = -search(checkersApply(b, m), -side, depth - 1, -beta, -alpha, ply + 1, clock, rules)
     if (score > best) best = score
     if (best > alpha) alpha = best
     if (alpha >= beta) break
@@ -109,10 +146,10 @@ function search(b, side, depth, alpha, beta, ply, clock) {
   return best
 }
 
-function bestAt(b, side, moves, depth, clock) {
+function bestAt(b, side, moves, depth, clock, rules) {
   let best = { move: moves[0], score: -Infinity }
   for (const m of moves) {
-    const score = -search(checkersApply(b, m), -side, depth - 1, -Infinity, -best.score, 1, clock)
+    const score = -search(checkersApply(b, m), -side, depth - 1, -Infinity, -best.score, 1, clock, rules)
     if (clock.out) break
     if (score > best.score) best = { move: m, score }
   }
@@ -126,8 +163,8 @@ const LEVEL = {
 }
 
 // Move the PC plays, or null when it has none. Easy sometimes plays a random legal move.
-export function checkersBest(b, level = 'normal', side = -1) {
-  const moves = checkersMoves(b, side)
+export function checkersBest(b, level = 'normal', side = -1, rules = DEFAULT_RULES) {
+  const moves = checkersMoves(b, side, rules)
   if (!moves.length) return null
   if (moves.length === 1) return moves[0]
   for (let i = moves.length - 1; i > 0; i--) {
@@ -136,11 +173,12 @@ export function checkersBest(b, level = 'normal', side = -1) {
   }
   const { depth, slip, ms } = LEVEL[level] ?? LEVEL.normal
   if (slip && Math.random() < slip) return moves[0]
-  if (!ms) return bestAt(b, side, moves, depth, {}).move
+  moves.sort((x, y) => y.caps.length - x.caps.length) // stable: random order within equal captures
+  if (!ms) return bestAt(b, side, moves, depth, {}, rules).move
   const clock = { end: Date.now() + ms, nodes: 0, out: false }
-  let best = bestAt(b, side, moves, 2, {})
+  let best = bestAt(b, side, moves, 2, {}, rules)
   for (let d = 4; d <= depth; d += 2) {
-    const next = bestAt(b, side, moves, d, clock)
+    const next = bestAt(b, side, moves, d, clock, rules)
     if (clock.out) break
     best = next
     if (Math.abs(best.score) >= WIN - 100) break

@@ -26,6 +26,9 @@ import {
   HorseIcon,
   CheckerboardIcon,
   DotsNineIcon,
+  StackIcon,
+  KanbanIcon,
+  ClubIcon,
 } from '@phosphor-icons/react'
 import { fmtMs, fmtTime } from '../lib/util'
 import { ClaudeFigure } from '../components/ClaudeFigure'
@@ -37,6 +40,7 @@ const lazyGame = (load) => Object.assign(lazy(load), { preload: load })
 // Casino games (and Blackjack, which uses the same bank) share one chunk; each page renders it in a fixed mode.
 const casino = (name) => lazyGame(() => import('./Casino.jsx').then((m) => ({ default: m[name] })))
 const credits = (v) => `${v.toLocaleString()} credits`
+const patience = (name) => lazyGame(() => import('./Patience.jsx').then((m) => ({ default: m[name] })))
 const inRow = (v) => `${v} in a row`
 const moves = (v) => `${v} move${v === 1 ? '' : 's'}`
 
@@ -162,6 +166,24 @@ export const GAMES = [
     cat: 'Classic', icon: HandPalmIcon, tone: 'dots',
     better: 'high', fmt: inRow,
     Component: lazyGame(() => import('./Yaniv.jsx')),
+  },
+  {
+    id: 'holdem', name: "Hold'em", blurb: "Texas hold'em vs three PCs.", group: 'cards',
+    cat: 'Classic', icon: ClubIcon, size: 'wide', tone: 'lines',
+    better: 'high', fmt: (v) => `${v} hand${v === 1 ? '' : 's'} won`,
+    Component: lazyGame(() => import('./Holdem.jsx')),
+  },
+  {
+    id: 'solitaire', name: 'Solitaire', blurb: 'Build four suits from ace to king.', group: 'cards',
+    cat: 'Puzzle', icon: StackIcon, tone: 'lines',
+    better: 'low', variant: '1', vlabel: (v) => `Draw ${v}`, fmt: (v) => fmtTime(v),
+    Component: patience('SolitaireGame'),
+  },
+  {
+    id: 'freecell', name: 'FreeCell', blurb: 'Every card face up. Four free cells.', group: 'cards',
+    cat: 'Puzzle', icon: KanbanIcon, tone: 'plain',
+    better: 'low', fmt: (v) => fmtTime(v),
+    Component: patience('FreeCellGame'),
   },
   {
     id: 'slots', name: 'Slots', blurb: 'Spin three reels. Match to win.', group: 'casino',

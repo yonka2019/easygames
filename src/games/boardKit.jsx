@@ -57,18 +57,19 @@ export function usePcTurn(active, think, state, level, onMove, minMs = 600) {
   }, [active, think, state, level, reduce, minMs])
 }
 
-// Top row of a board game: level picker (locked mid-game), move count, new game.
-export function BoardBar({ locked, moves, onNew }) {
+// Top row of a board game: level picker (locked mid-game), move count, `extra` (e.g. a Rules button), new game.
+export function BoardBar({ locked, moves, onNew, extra }) {
   const { variant, setVariant } = useGame()
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div className={`transition-opacity duration-200 ${locked ? 'pointer-events-none opacity-50' : ''}`}>
         <Segmented label="Level" options={LEVELS} value={variant} onChange={(v) => !locked && setVariant(v)} />
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         <span className="text-sm text-muted">
           Moves <span className="num ml-1 inline-block min-w-[2ch] text-ink">{moves}</span>
         </span>
+        {extra}
         <Button variant="ghost" onClick={onNew}>
           New game
         </Button>

@@ -1,13 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { CrownSimpleIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, CheckIcon, CrownSimpleIcon, SlidersHorizontalIcon } from '@phosphor-icons/react'
 import { useGame } from '../components/GameFrame'
-import { EASE, Swap, useEnter } from '../components/ui'
+import { getValue, setValue } from '../lib/store'
+import { Button, EASE, Swap, useEnter } from '../components/ui'
 import { BoardBar, FocusRing, SQ_DARK, SQ_LIGHT, useGridNav, usePc, usePcTurn } from './boardKit'
-import { checkersApply, checkersMoves, checkersNew } from './checkersLogic'
+import { DEFAULT_RULES, checkersApply, checkersMoves, checkersNew } from './checkersLogic'
 
-// Checkers (English rules) vs the PC. You move first, up the board. Jumps are forced; a multi-jump is
-// played hop by hop. Score = your moves when you win (fewer is better).
+// Checkers vs the PC. You move first, up the board. A multi-jump is played hop by hop. Rule switches
+// (checkersLogic `rules`) are saved and locked mid-game. Score = your moves when you win (fewer is better).
+
+const RULES = [
+  { key: 'force', label: 'Must jump' },
+  { key: 'flying', label: 'Flying kings' },
+  { key: 'back', label: 'Men jump back' },
+  { key: 'most', label: 'Take most', needs: 'force' },
+]
+const loadRules = () => {
+  const saved = getValue('checkersRules', {})
+  return Object.fromEntries(Object.keys(DEFAULT_RULES).map((k) => [k, typeof saved?.[k] === 'boolean' ? saved[k] : DEFAULT_RULES[k]]))
+}
 
 const QUIET_MAX = 80 // plies without a capture = draw (40 moves each)
 const HOP = 320 // ms per hop of a PC multi-jump
@@ -19,7 +31,7 @@ function fresh() {
 }
 
 // Position after `side` plays `m` (piece ids follow their pieces, so they slide instead of jumping).
-function commit(g, m, side) {
+function commit(g, m, side, rules) {
   const b = checkersApply(g.b, m)
   const ids = [...g.ids]
   const id = ids[m.from]
@@ -28,13 +40,91 @@ function commit(g, m, side) {
   ids[m.to] = id
   const quiet = m.caps.length ? 0 : g.quiet + 1
   let over = null
-  if (!checkersMoves(b, -side).length) over = side === 1 ? 'win' : 'lose'
+  if (!checkersMoves(b, -side, rules).length) over = side === 1 ? 'win' : 'lose'
   else if (quiet >= QUIET_MAX) over = 'draw'
   return { b, ids, turn: -side, quiet, moves: g.moves + (side === 1 ? 1 : 0), over, last: m }
 }
 
 const sqLabel = (i) => 'abcdefgh'[i & 7] + (8 - (i >> 3))
 const PIECE = { 1: 'your man', 2: 'your king', '-1': 'PC man', '-2': 'PC king' }
+
+// Rules button + dropdown with the rule switches. Closes on Esc or a click outside. Locked mid-game.
+function RulesMenu({ rules, locked, onToggle }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  const btn = useRef(null)
+  const isOn = (r) => rules[r.key] && !(r.needs && !rules[r.needs])
+  const count = RULES.filter(isOn).length
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => !box.current?.contains(e.target) && setOpen(false)
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      btn.current?.focus()
+    }
+    document.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={box} className="relative">
+      <Button ref={btn} variant="ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls="checkers-rules" aria-label={`Rules, ${count} on`} className="gap-2 px-3">
+        <span className="relative">
+          <SlidersHorizontalIcon size={16} />
+          {/* Rules on: a small count on the icon corner (keeps the button one width, so the bar never wraps). */}
+          <span
+            className={`num absolute -right-1.5 -top-2 grid size-3.5 place-items-center rounded-full bg-accent text-[9px] leading-none text-accent-ink transition-[opacity,scale] duration-200 ${count ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}
+          >
+            {count || ''}
+          </span>
+        </span>
+        Rules
+        <CaretDownIcon size={12} weight="bold" className={`text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+      </Button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id="checkers-rules"
+            role="group"
+            aria-label="Rules"
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1, pointerEvents: 'auto' }}
+            exit={{ opacity: 0, y: -6, scale: 0.97, pointerEvents: 'none' }}
+            transition={{ duration: 0.16, ease: EASE }}
+            style={{ transformOrigin: 'top center' }}
+            className="absolute left-1/2 top-full z-30 mt-2 w-56 -translate-x-1/2 rounded-xl border border-line bg-surface p-1.5 shadow-[0_14px_36px_-10px_rgb(0_0_0/0.4)]"
+          >
+            {RULES.map((r) => {
+              const on = isOn(r)
+              return (
+                <button
+                  key={r.key}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={locked || (r.needs && !rules[r.needs])}
+                  onClick={() => onToggle(r.key)}
+                  className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm transition-[color,background-color,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-surface-2 disabled:opacity-35 ${on ? 'text-ink' : 'text-muted hover:text-ink'}`}
+                >
+                  <span className={`grid size-4 shrink-0 place-items-center rounded-[5px] border transition-colors duration-200 ${on ? 'border-accent bg-accent text-accent-ink' : 'border-line'}`}>
+                    <CheckIcon size={11} weight="bold" className={`transition-opacity duration-200 ${on ? 'opacity-100' : 'opacity-0'}`} />
+                  </span>
+                  {r.label}
+                </button>
+              )
+            })}
+            {locked && <p className="px-2.5 pb-1 pt-1.5 text-xs text-muted">Locked until this game ends.</p>}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
 
 function Disc({ p }) {
   return (
@@ -57,17 +147,21 @@ export default function Checkers() {
   const think = usePc('checkers')
   const nav = useGridNav(8, 64, 40)
   const [g, setG] = useState(fresh)
+  const [rules, setRules] = useState(loadRules)
   const [sel, setSel] = useState(null) // { from, prefix: squares hopped so far }
   const [walk, setWalk] = useState(null) // PC multi-jump being shown: { move, k: hops shown }
   const [game, setGame] = useState(0)
   const [isNew, setIsNew] = useState(false)
 
   const mine = g.turn === 1 && !g.over && !walk
-  const legal = useMemo(() => (g.turn === 1 && !g.over ? checkersMoves(g.b, 1) : []), [g])
+  const locked = g.moves > 0 && !g.over
+  const legal = useMemo(() => (g.turn === 1 && !g.over ? checkersMoves(g.b, 1, rules) : []), [g, rules])
   const movable = useMemo(() => new Set(legal.map((m) => m.from)), [legal])
-  const mustJump = legal.length > 0 && legal[0].caps.length > 0
+  const mustJump = rules.force && legal.length > 0 && legal[0].caps.length > 0
   const cands = sel ? legal.filter((m) => m.from === sel.from && sel.prefix.every((sq, i) => m.path[i] === sq)) : []
-  const targets = new Set(cands.map((m) => m.path[sel.prefix.length]))
+  const targets = new Set(cands.map((m) => m.path[sel.prefix.length]).filter((sq) => sq !== undefined))
+  // Mid-chain with jumps optional: the hops so far are a full move, so the turn may end here.
+  const stop = sel?.prefix.length ? cands.find((m) => m.path.length === sel.prefix.length) : null
 
   const finish = (next) => {
     if (next.over === 'win') setIsNew(report(next.moves).isNew)
@@ -75,22 +169,37 @@ export default function Checkers() {
     setG(next)
   }
 
+  const play = (m) => {
+    setSel(null)
+    finish(commit(g, m, 1, rules))
+  }
+
   const click = (sq) => {
     if (!mine) return
     if (sel && targets.has(sq)) {
       const prefix = [...sel.prefix, sq]
-      const done = cands.find((m) => m.path.length === prefix.length && m.path[prefix.length - 1] === sq)
-      if (!done) return setSel({ from: sel.from, prefix })
-      setSel(null)
-      return finish(commit(g, done, 1))
+      const at = cands.filter((m) => m.path[prefix.length - 1] === sq)
+      const done = at.find((m) => m.path.length === prefix.length)
+      if (done && !at.some((m) => m.path.length > prefix.length)) return play(done)
+      return setSel({ from: sel.from, prefix }) // more hops to take (or, when optional, to choose)
     }
+    if (stop && sq === sel.prefix.at(-1)) return play(stop) // click the jumping piece = end turn
     setSel(movable.has(sq) ? { from: sq, prefix: [] } : null)
   }
 
-  usePcTurn(g.turn === -1 && !g.over && !walk, think, g.b, variant, (move) => {
+  const toggle = (key) => {
+    if (locked) return
+    const next = { ...rules, [key]: !rules[key] }
+    setRules(next)
+    setValue('checkersRules', next)
+    setSel(null)
+  }
+
+  const pcState = useMemo(() => ({ b: g.b, rules }), [g.b, rules])
+  usePcTurn(g.turn === -1 && !g.over && !walk, think, pcState, variant, (move) => {
     if (!move) return
     if (move.path.length > 1 && !reduce) setWalk({ move, k: 1 })
-    else finish(commit(g, move, -1))
+    else finish(commit(g, move, -1, rules))
   })
 
   // PC multi-jump: one hop at a time, the last hop lands with the move itself.
@@ -99,7 +208,7 @@ export default function Checkers() {
     const id = setTimeout(() => {
       if (walk.k + 1 < walk.move.path.length) return setWalk({ move: walk.move, k: walk.k + 1 })
       setWalk(null)
-      finish(commit(g, walk.move, -1))
+      finish(commit(g, walk.move, -1, rules))
     }, HOP)
     return () => clearTimeout(id)
   }, [walk]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -144,11 +253,25 @@ export default function Checkers() {
   } else if (g.over === 'lose') say = <span className="text-danger">PC wins.</span>
   else if (g.over) say = <span className="text-ink">Draw: 40 moves without a capture.</span>
   else if (!mine) say = <span className="text-muted">PC is thinking…</span>
-  else if (sel?.prefix.length) say = <span className="text-ink">Keep jumping.</span>
+  else if (stop) {
+    say = (
+      <span className="inline-flex items-center gap-3 text-ink">
+        Jump again?
+        <Button variant="ghost" onClick={() => play(stop)} className="h-8 px-3">
+          End turn
+        </Button>
+      </span>
+    )
+  } else if (sel?.prefix.length) say = <span className="text-ink">Keep jumping.</span>
 
   return (
     <div className="mx-auto max-w-[520px]">
-      <BoardBar locked={g.moves > 0 && !g.over} moves={g.moves} onNew={newGame} />
+      <BoardBar
+        locked={locked}
+        moves={g.moves}
+        onNew={newGame}
+        extra={<RulesMenu rules={rules} locked={locked} onToggle={toggle} />}
+      />
       <Swap k={game}>
         <div className="relative grid grid-cols-8 overflow-hidden rounded-xl border border-line" onKeyDown={nav.onKeyDown}>
           {g.b.map((p, i) => {
@@ -198,12 +321,12 @@ export default function Checkers() {
         </div>
       </Swap>
 
-      <div className="mt-4 h-7 text-center">
-        <Swap k={g.over ? `over-${game}` : `${game}-${mine}-${mustJump}-${sel?.prefix.length ? 'hop' : ''}`}>{say}</Swap>
+      <div className="mt-4 flex h-9 items-center justify-center text-center">
+        <Swap k={g.over ? `over-${game}` : `${game}-${mine}-${mustJump}-${stop ? 'stop' : sel?.prefix.length ? 'hop' : ''}`}>{say}</Swap>
       </div>
 
       <p className="mt-6 text-center text-sm text-muted">
-        Click a piece, then a square (or arrows + Enter). Jumps are forced. Reach the far row for a king.{g.over && ' Enter = new game.'}
+        Click a piece, then a square (or arrows + Enter). {rules.force ? 'Jumps are forced.' : 'Jumps are optional.'} Reach the far row for a king.{g.over && ' Enter = new game.'}
       </p>
     </div>
   )

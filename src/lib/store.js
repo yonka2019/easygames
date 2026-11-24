@@ -25,7 +25,7 @@ function migrate(data) {
 }
 
 // Kept by resetAll: play state, not a score (today's Word guess stays done).
-const KEEP = ['_wordDaily']
+const KEEP = ['_wordDaily', '_checkersRules'] // kept by Reset; not scores
 
 function write(data) {
   try {

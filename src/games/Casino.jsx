@@ -17,7 +17,7 @@ import Blackjack from './Blackjack.jsx'
 // Play money only. Slots return 94.6% at bet 1 up to 99% at bet 25 (bigger bets make rare symbols likelier);
 // European roulette 97.3%; blackjack (Blackjack.jsx) about 99% with good play. The house still wins over time.
 const START = 200
-const BETS = ['1', '5', '10', '25']
+const BETS = ['1', '5', '10', '25', '50', '100', 'all'] // 'all' = the whole balance
 const TITLE = { slots: 'Slots', roulette: 'Roulette', blackjack: 'Blackjack', levels: 'Levels', pinpoint: 'Pinpoint' }
 
 const weighted = (items) => {
@@ -654,14 +654,14 @@ export default function Casino({ mode = 'slots' }) {
   const [deal, setDeal] = useState(0) // bumps on every fresh bankroll, replaying the hand-over animation
 
   const coinMode = mode === 'slots' || mode === 'roulette' || mode === 'blackjack'
-  const stake = Math.min(Number(bet), bank.balance)
+  const stake = bet === 'all' ? bank.balance : Math.min(Number(bet), bank.balance)
   const broke = bank.balance <= 0
-  const betOptions = BETS.map((b) => ({ value: b, label: b, disabled: Number(b) > bank.balance }))
+  const betOptions = BETS.map((b) => ({ value: b, label: b === 'all' ? 'All in' : b, disabled: b !== 'all' && Number(b) > bank.balance }))
 
   // Can't afford the chosen bet any more: drop to the biggest one that fits.
   useEffect(() => {
-    if (busy || Number(bet) <= bank.balance) return
-    const fit = [...BETS].reverse().find((b) => Number(b) <= bank.balance)
+    if (busy || bet === 'all' || Number(bet) <= bank.balance) return
+    const fit = BETS.filter((b) => b !== 'all').reverse().find((b) => Number(b) <= bank.balance)
     if (fit) setBet(fit)
   }, [bank.balance, bet, busy])
 

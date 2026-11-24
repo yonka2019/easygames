@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.5.0] : 2026-11-24
+
+- Cards: Hold'em vs 3 PCs (score = hands won), Solitaire (Draw 1 / Draw 3), FreeCell (score = time). Click or drag cards, unlimited undo.
+- Casino and Blackjack: bigger bets 50 / 100 / All in.
+- Checkers: rule switches in a Rules dropdown (Must jump, Flying kings, Men jump back, Take most). All off by default, so jumps are now optional.
+
 ## [v2.4.1] : 2026-11-24
 
 - Repo: `.claude/` is tracked now (project command `sync-from-ext-vp`).

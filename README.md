@@ -1,8 +1,11 @@
 # easygames
 
-24 browser games: claude run, board vs PC (chess, checkers, four in a row), cards (blackjack, higher or lower, crazy eights, yaniv), casino (slots, roulette, levels, pinpoint), type race, math sprint, number memory, sequence, reaction time, aim trainer, chimp test, memory pairs, word guess, snake, minesweeper, 2048.
+27 browser games: claude run, board vs PC (chess, checkers, four in a row), cards (blackjack, higher or lower, crazy eights, yaniv, hold'em, solitaire, freecell), casino (slots, roulette, levels, pinpoint), type race, math sprint, number memory, sequence, reaction time, aim trainer, chimp test, memory pairs, word guess, snake, minesweeper, 2048.
 
-Scores save to this browser only (localStorage).
+- Casino bets: 1 / 5 / 10 / 25 / 50 / 100 / All in (play money).
+- Checkers rule switches: must jump, flying kings, men jump back, take most (all off by default).
+
+Scores and settings save to this browser only (localStorage).
 
 ## Run
 

@@ -4,7 +4,8 @@ import { chessBest } from './chessLogic.js'
 import { checkersBest } from './checkersLogic.js'
 import { fourBest } from './fourLogic.js'
 
-const BEST = { chess: chessBest, checkers: checkersBest, four: fourBest }
+// Checkers state = { b, rules }.
+const BEST = { chess: chessBest, checkers: (s, level) => checkersBest(s.b, level, -1, s.rules), four: fourBest }
 
 self.onmessage = (e) => {
   const { id, game, state, level } = e.data

@@ -9,6 +9,14 @@ const SIZE = {
   sm: { box: 'h-14 w-10 rounded-md', rank: 'text-xs', pip: 9, big: 16, pad: 'left-1 top-1' },
   md: { box: 'h-[74px] w-[52px] rounded-lg sm:h-[92px] sm:w-16', rank: 'text-sm sm:text-base', pip: 11, big: 24, pad: 'left-1.5 top-1.5' },
   lg: { box: 'h-40 w-28 rounded-xl', rank: 'text-2xl', pip: 18, big: 52, pad: 'left-2.5 top-2.5' },
+  // Fills its parent's width (patience columns). Rank and pip sit side by side so stacked cards stay readable.
+  fluid: {
+    box: 'w-full aspect-[5/7] rounded-[9cqw] [container-type:inline-size]',
+    rank: 'text-[25cqw] tracking-[-0.06em]',
+    pipCls: 'size-[19cqw]',
+    bigCls: 'size-[46cqw]',
+    pad: 'left-[8cqw] top-[5cqw] flex-row! gap-[3cqw]!',
+  },
 }
 
 export const suitTint = (s) => (s === 'h' || s === 'd' ? 'text-danger' : 'text-ink')
@@ -17,8 +25,8 @@ function Face({ card, z }) {
   if (isJoker(card)) {
     return (
       <span className="absolute inset-0 text-accent">
-        <StarIcon size={z.pip + 3} weight="fill" className={`absolute ${z.pad}`} />
-        <SmileyIcon size={z.big + 4} weight="duotone" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" />
+        <StarIcon size={z.pip + 3} weight="fill" className={`absolute ${z.pad} ${z.pipCls ?? ''}`} />
+        <SmileyIcon size={z.big + 4} weight="duotone" className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${z.bigCls ?? ''}`} />
       </span>
     )
   }
@@ -27,9 +35,9 @@ function Face({ card, z }) {
     <span className={`absolute inset-0 ${isRed(card) ? 'text-danger' : 'text-ink'}`}>
       <span className={`absolute flex flex-col items-center gap-0.5 leading-none ${z.pad}`}>
         <span className={`num font-semibold leading-none ${z.rank}`}>{rankLabel(card.r)}</span>
-        <Icon size={z.pip} weight="fill" />
+        <Icon size={z.pip} weight="fill" className={z.pipCls} />
       </span>
-      <Icon size={z.big} weight="fill" className="absolute bottom-[14%] right-[12%]" />
+      <Icon size={z.big} weight="fill" className={`absolute bottom-[14%] right-[12%] ${z.bigCls ?? ''}`} />
     </span>
   )
 }
