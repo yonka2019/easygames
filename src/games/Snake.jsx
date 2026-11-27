@@ -23,7 +23,7 @@ function initial() {
     { x: 7, y: 10 },
     { x: 6, y: 10 },
   ]
-  return { snake, dir: 'right', queue: [], food: food(snake), speed: 130 }
+  return { snake, dir: 'right', queue: [], food: food(snake), speed: 175 }
 }
 
 // Drawing state between ticks: last step's snake, when it started, how long it lasts, eaten food.
@@ -176,7 +176,7 @@ export default function Snake() {
       g.snake = [head, ...body]
       if (eat) {
         g.food = food(g.snake)
-        g.speed = Math.max(60, g.speed - 3)
+        g.speed = Math.max(95, g.speed - 3)
         setScore((g.snake.length - 3) * 10)
         a.foodAt = performance.now()
       }

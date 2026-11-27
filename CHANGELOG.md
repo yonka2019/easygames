@@ -1,5 +1,9 @@
 # Changelog
 
+## [v2.5.1] : 2026-11-27
+
+- Snake: slower. Start step 130 → 175ms, top speed 60 → 95ms.
+
 ## [v2.5.0] : 2026-11-24
 
 - Cards: Hold'em vs 3 PCs (score = hands won), Solitaire (Draw 1 / Draw 3), FreeCell (score = time). Click or drag cards, unlimited undo.
